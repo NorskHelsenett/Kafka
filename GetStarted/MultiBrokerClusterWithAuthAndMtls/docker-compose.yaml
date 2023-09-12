@@ -1,0 +1,2067 @@
+version: "3.8"
+
+# ToDo:
+# - Consider adding network specific aliases/dns names for brokers and zookeepers, so that what addresses are actually used is even easier to follow
+# - Replace this list of ToDo's with a readme?
+#   - Mention where to find the kafka UI (localhost:8081)
+#     - Say that the schema registry is a bit slower, so you might need to wait halfa a minute/minute before it's up and properly shows up in the Kafka UI instance.
+#   - Say you can connect to the brokers from the outside (on your machine) on localhost:9094, localhost:9095, and localhost:9096
+#   - Outline how to make more and test with other credentials?
+#   - Say that your life can be easier locally if the containers run with the same user as you, because you can then access all the generated files and anything without having to mess around with changing ownership or permissions. The important thing is that the user Ids are the same for all the services needing to use the generated files, if you don't want to extend the scripts. You can find your own user ID:Group by running `$(id -u):$(id -g)`, or you can use `${UID}:${GROUPS}` directly as the value in the `user` filed (e.g. `services.broker1.user: ${UID}:${GROUPS}`).
+#   - Highlight some important flags:
+#     - `services.set-up-container-mount-area.environment.RESET_EVERYTHING`
+#       - Removes all the stored folders and starts fresh if you set it to `true`.
+#     - `services.create-certificate-authority.environment.RECREATE_IF_EXISTS`
+#       - Should you want to recreate the CA, set this to `true`. Note that this won't trigger the issued certificates being recreated.
+#     - `services.create-certificates.environment.RECREATE_IF_EXISTS`
+#       - Should you want to recreate the Certificates, set this to `true`.
+#     - `services.create-certificates.command.USE_DEMO_PASSWORDS`
+#       - If you want to use the script to make random password rather than fixed demo values, set this to anything else than `true`.
+#     - `services.create-certificates.command.RSA_BITS`
+#       - Default to 1024, because 4096 is noticeably slow to humans, and default mode here is demo. You probably want other values in prod. If you change this, you probably also need to change the value for the CA (`services.create-certificate-authority.command.RSA_BITS`).
+#     - `services.create-certificates.command.ENV_NAME`
+#       - Helpfully makes a lot of the files contain the envrionment name, so that if you create multiple environments to experiment with running things in parallell it becomes easier to tell appart what files come from where.
+#     - `services.create-certificates.command.VALIDITY_DAYS`
+#       - Controlls how long the issued credentials are valid for. Note that if this is shorter than the validity of the CA, the crendentials will become invalid at the point in time the CA expires.
+#   - Mention that while this gives you a lot, you still need to do a lot before calling yourself production ready
+#     - Set up log shipping and handling
+#     - Consider kafka UI having/being an admin user, and the existence of admin users in general
+#     - Now that we're half way in 2023, you might want to do this with kubernetes instead
+#       - Now that we're half way in 2023, zookeepers are now legacy, use new cool k-raft feature instead
+
+services:
+  zookeeper1:
+    image: confluentinc/cp-zookeeper:7.5.0
+    hostname: zookeeper1
+    container_name: zookeeper1
+    user: 1000:1001
+    depends_on:
+      create-certificates:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    networks:
+      zookeepers_network:
+        ipv4_address: 172.21.82.11
+        ipv6_address: 2001:2181:2181::11
+    environment:
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_CLIENT_PORT: 2180
+      ZOOKEEPER_SECURE_CLIENT_PORT: 2181
+      ZOOKEEPER_SSL_CLIENT_SECURE: "true"
+      ZOOKEEPER_SSL_CLIENT_ENABLE: "true"
+      ZOOKEEPER_SSL_CLIENT_AUTH: need
+      ZOOKEEPER_MAXCLIENTCNXNS: 0
+      ZOOKEEPER_SERVER_CNXN_FACTORY: org.apache.zookeeper.server.NettyServerCnxnFactory
+      ZOOKEEPER_AUTHPROVIDER_X509: org.apache.zookeeper.server.auth.X509AuthenticationProvider
+      ZOOKEEPER_CLIENT_SECURE: "true"
+
+      ZOOKEEPER_SSL_KEYSTORE_TYPE: PKCS12
+      ZOOKEEPER_SSL_KEYSTORE_LOCATION: "/kafka/secrets/zookeeper1.lokalmaskin.pfx"
+      ZOOKEEPER_SSL_KEYSTORE_PASSWORD: "ZooKeeper_1_demo_password"
+
+      ZOOKEEPER_SSL_TRUSTSTORE_TYPE: PEM
+      ZOOKEEPER_SSL_TRUSTSTORE_LOCATION: /kafka/secrets/CA_lokalmaskin.crt
+      ZOOKEEPER_SSL_QUORUM: "true"
+
+      ZOOKEEPER_SSL_QUORUM_KEYSTORE_TYPE: PKCS12
+      ZOOKEEPER_SSL_QUORUM_KEYSTORE_LOCATION: "/kafka/secrets/zookeeper1.lokalmaskin.pfx"
+      ZOOKEEPER_SSL_QUORUM_KEYSTORE_PASSWORD: "ZooKeeper_1_demo_password"
+
+      ZOOKEEPER_SSL_QUORUM_TRUSTSTORE_TYPE: PEM
+      ZOOKEEPER_SSL_QUORUM_TRUSTSTORE_LOCATION: /kafka/secrets/CA_lokalmaskin.crt
+
+      ZOOKEEPER_SET_ACL: "true"
+      ZOO_MY_ID: "1"
+      # ZOOKEEPER_SERVERS is on format `zookeeper 1 address : incoming port : outgoing port; zookeeper 2 address : ...
+      ZOOKEEPER_SERVERS: "0.0.0.0:2888:3888;zookeeper2:2888:3888;zookeeper3:2888:3888"
+      # ZOOKEEPER_LOG4J_LOGGERS: "zookeeper.authorizer.logger=INFO"
+      # ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: info
+      ZOO_4LW_COMMANDS_WHITELIST: "ruok" # Enable r u ok (are you ok?) command for healtchecks for plain kafka
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok" # Enable r u ok (are you ok?) command for healtchecks for confluent kafka
+    healthcheck:
+      test: ['CMD', '/bin/bash', '-c', 'echo "ruok" | nc -w 2 localhost 2180 | grep imok']
+      start_period: "10s"
+      interval: "10s"
+      timeout: "5s"
+      retries: 6
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1:/kafka/secrets
+      - ./ContainerData/Kafka/ZooKeepers/ZooKeeper1/Data:/var/lib/zookeeper/data
+      - ./ContainerData/Kafka/ZooKeepers/ZooKeeper1/Logs:/var/lib/zookeeper/log # Needed for retaining cluster ID between restarts
+
+  zookeeper2:
+    image: confluentinc/cp-zookeeper:7.5.0
+    hostname: zookeeper2
+    container_name: zookeeper2
+    user: 1000:1001
+    depends_on:
+      create-certificates:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    networks:
+      zookeepers_network:
+        ipv4_address: 172.21.82.12
+        ipv6_address: 2001:2181:2181::12
+    environment:
+      ZOOKEEPER_SERVER_ID: 2
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_CLIENT_PORT: 2180
+      ZOOKEEPER_SECURE_CLIENT_PORT: 2181
+      ZOOKEEPER_SSL_CLIENT_SECURE: "true"
+      ZOOKEEPER_SSL_CLIENT_ENABLE: "true"
+      ZOOKEEPER_SSL_CLIENT_AUTH: need
+      ZOOKEEPER_MAXCLIENTCNXNS: 0
+      ZOOKEEPER_SERVER_CNXN_FACTORY: org.apache.zookeeper.server.NettyServerCnxnFactory
+      ZOOKEEPER_AUTHPROVIDER_X509: org.apache.zookeeper.server.auth.X509AuthenticationProvider
+      ZOOKEEPER_CLIENT_SECURE: "true"
+
+      ZOOKEEPER_SSL_KEYSTORE_TYPE: PKCS12
+      ZOOKEEPER_SSL_KEYSTORE_LOCATION: "/kafka/secrets/zookeeper2.lokalmaskin.pfx"
+      ZOOKEEPER_SSL_KEYSTORE_PASSWORD: "ZooKeeper_2_demo_password"
+
+      ZOOKEEPER_SSL_TRUSTSTORE_TYPE: PEM
+      ZOOKEEPER_SSL_TRUSTSTORE_LOCATION: /kafka/secrets/CA_lokalmaskin.crt
+      ZOOKEEPER_SSL_QUORUM: "true"
+
+      ZOOKEEPER_SSL_QUORUM_KEYSTORE_TYPE: PKCS12
+      ZOOKEEPER_SSL_QUORUM_KEYSTORE_LOCATION: "/kafka/secrets/zookeeper2.lokalmaskin.pfx"
+      ZOOKEEPER_SSL_QUORUM_KEYSTORE_PASSWORD: "ZooKeeper_2_demo_password"
+
+      ZOOKEEPER_SSL_QUORUM_TRUSTSTORE_TYPE: PEM
+      ZOOKEEPER_SSL_QUORUM_TRUSTSTORE_LOCATION: /kafka/secrets/CA_lokalmaskin.crt
+
+      ZOOKEEPER_SET_ACL: "true"
+      ZOO_MY_ID: "2"
+      # ZOOKEEPER_SERVERS is on format `zookeeper 1 address : incoming port : outgoing port; zookeeper 2 address : ...
+      ZOOKEEPER_SERVERS: "zookeeper1:2888:3888;0.0.0.0:2888:3888;zookeeper3:2888:3888"
+      # ZOOKEEPER_LOG4J_LOGGERS: "zookeeper.authorizer.logger=INFO"
+      # ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: info
+      ZOO_4LW_COMMANDS_WHITELIST: "ruok" # Enable r u ok (are you ok?) command for healtchecks for plain kafka
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok" # Enable r u ok (are you ok?) command for healtchecks for confluent kafka
+    healthcheck:
+      test: ['CMD', '/bin/bash', '-c', 'echo "ruok" | nc -w 2 localhost 2180 | grep imok']
+      start_period: "10s"
+      interval: "10s"
+      timeout: "5s"
+      retries: 6
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2:/kafka/secrets
+      - ./ContainerData/Kafka/ZooKeepers/ZooKeeper2/Data:/var/lib/zookeeper/data
+      - ./ContainerData/Kafka/ZooKeepers/ZooKeeper2/Logs:/var/lib/zookeeper/log
+
+  zookeeper3:
+    image: confluentinc/cp-zookeeper:7.5.0
+    hostname: zookeeper3
+    container_name: zookeeper3
+    user: 1000:1001
+    depends_on:
+      create-certificates:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    networks:
+      zookeepers_network:
+        ipv4_address: 172.21.82.13
+        ipv6_address: 2001:2181:2181::13
+    environment:
+      ZOOKEEPER_SERVER_ID: 3
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_CLIENT_PORT: 2180
+      ZOOKEEPER_SECURE_CLIENT_PORT: 2181
+      ZOOKEEPER_SSL_CLIENT_SECURE: "true"
+      ZOOKEEPER_SSL_CLIENT_ENABLE: "true"
+      ZOOKEEPER_SSL_CLIENT_AUTH: need
+      ZOOKEEPER_MAXCLIENTCNXNS: 0
+      ZOOKEEPER_SERVER_CNXN_FACTORY: org.apache.zookeeper.server.NettyServerCnxnFactory
+      ZOOKEEPER_AUTHPROVIDER_X509: org.apache.zookeeper.server.auth.X509AuthenticationProvider
+      ZOOKEEPER_CLIENT_SECURE: "true"
+
+      ZOOKEEPER_SSL_KEYSTORE_TYPE: PKCS12
+      ZOOKEEPER_SSL_KEYSTORE_LOCATION: "/kafka/secrets/zookeeper3.lokalmaskin.pfx"
+      ZOOKEEPER_SSL_KEYSTORE_PASSWORD: "ZooKeeper_3_demo_password"
+
+      ZOOKEEPER_SSL_TRUSTSTORE_TYPE: PEM
+      ZOOKEEPER_SSL_TRUSTSTORE_LOCATION: /kafka/secrets/CA_lokalmaskin.crt
+      ZOOKEEPER_SSL_QUORUM: "true"
+
+      ZOOKEEPER_SSL_QUORUM_KEYSTORE_TYPE: PKCS12
+      ZOOKEEPER_SSL_QUORUM_KEYSTORE_LOCATION: "/kafka/secrets/zookeeper3.lokalmaskin.pfx"
+      ZOOKEEPER_SSL_QUORUM_KEYSTORE_PASSWORD: "ZooKeeper_3_demo_password"
+
+      ZOOKEEPER_SSL_QUORUM_TRUSTSTORE_TYPE: PEM
+      ZOOKEEPER_SSL_QUORUM_TRUSTSTORE_LOCATION: /kafka/secrets/CA_lokalmaskin.crt
+
+      ZOOKEEPER_SET_ACL: "true"
+      ZOO_MY_ID: "3"
+      # ZOOKEEPER_SERVERS is on format `zookeeper 1 address : incoming port : outgoing port; zookeeper 2 address : ...
+      # ZOOKEEPER_SERVERS: "0.0.0.0:2888:3888;zookeeper2:2888:3888;zookeeper3:2888:3888"
+      ZOOKEEPER_SERVERS: "zookeeper1:2888:3888;zookeeper2:2888:3888;0.0.0.0:2888:3888"
+      # ZOOKEEPER_LOG4J_LOGGERS: "zookeeper.authorizer.logger=INFO"
+      # ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: info
+      ZOO_4LW_COMMANDS_WHITELIST: "ruok" # Enable r u ok (are you ok?) command for healtchecks for plain kafka
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok" # Enable r u ok (are you ok?) command for healtchecks for confluent kafka
+    healthcheck:
+      test: ['CMD', '/bin/bash', '-c', 'echo "ruok" | nc -w 2 localhost 2180 | grep imok']
+      start_period: "10s"
+      interval: "10s"
+      timeout: "5s"
+      retries: 6
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3:/kafka/secrets
+      - ./ContainerData/Kafka/ZooKeepers/ZooKeeper3/Data:/var/lib/zookeeper/data
+      - ./ContainerData/Kafka/ZooKeepers/ZooKeeper3/Logs:/var/lib/zookeeper/log
+
+  wait-for-zookeeper-quorum:
+    # Needed because zookeepers by default need 18000ms after reaching quorum to collectively decide to drop old connections from brokers.
+    # https://stackoverflow.com/a/66667725
+    image: debian:stable-slim
+    user: 1000:1001
+    container_name: wait-for-zookeeper-quorum
+    depends_on:
+      zookeeper1:
+        required: true
+        restart: false
+        condition: service_healthy
+      zookeeper2:
+        required: true
+        restart: false
+        condition: service_healthy
+      zookeeper3:
+        required: true
+        restart: false
+        condition: service_healthy
+    entrypoint: [ '/bin/bash', '-c', 'sleep 20' ]
+
+  broker1:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: broker1
+    container_name: broker1
+    user: 1000:1001
+    depends_on:
+      zookeeper1:
+        required: true
+        restart: false
+        condition: service_healthy
+      zookeeper2:
+        required: true
+        restart: false
+        condition: service_healthy
+      zookeeper3:
+        required: true
+        restart: false
+        condition: service_healthy
+      wait-for-zookeeper-quorum:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    networks:
+      brokers_network:
+        ipv4_address: 172.90.92.11
+        ipv6_address: 2001:9092:9092::11
+      zookeepers_network:
+        ipv4_address: 172.21.82.21
+        ipv6_address: 2001:2181:2181::21
+      apps_network:
+        ipv4_address: 172.80.80.11
+        ipv6_address: 2001:8080:8080::11
+    ports:
+      - "9094:9094"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper1:2181,zookeeper2:2181,zookeeper3:2181"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_INTER_BROKER_LISTENER_NAME: "BROKER"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "BROKER:SSL, ZOOKEEPERS:SSL, APPS:SSL, EXTERNAL_APPS:SSL"
+      KAFKA_LISTENERS: "BROKER://172.90.92.11:9091,ZOOKEEPERS://172.21.82.21:9093,APPS://172.80.80.11:9092,EXTERNAL_APPS://localhost:9094"
+      KAFKA_ADVERTISED_LISTENERS: "BROKER://172.90.92.11:9091,ZOOKEEPERS://172.21.82.21:9093,APPS://172.80.80.11:9092,EXTERNAL_APPS://localhost:9094"
+      KAFKA_SSL_CLIENT_AUTH: "required"
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+
+      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_SSL_KEYSTORE_LOCATION: /kafka/secrets/broker1.lokalmaskin.pfx
+      KAFKA_SSL_KEYSTORE_PASSWORD: "Broker_1_demo_password"
+      KAFKA_SSL_KEY_PASSWORD: "Broker_1_demo_password"
+
+      KAFKA_SSL_TRUSTSTORE_TYPE: PEM
+      KAFKA_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/CA_lokalmaskin.crt"
+
+      KAFKA_ZOOKEEPER_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_ZOOKEEPER_SSL_KEYSTORE_LOCATION: /kafka/secrets/broker1.lokalmaskin.pfx
+      KAFKA_ZOOKEEPER_SSL_KEYSTORE_PASSWORD: "Broker_1_demo_password"
+      KAFKA_ZOOKEEPER_SSL_KEY_PASSWORD: "Broker_1_demo_password"
+
+      KAFKA_ZOOKEEPER_SSL_TRUSTSTORE_TYPE: PEM
+      KAFKA_ZOOKEEPER_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/CA_lokalmaskin.crt"
+
+      KAFKA_ZOOKEEPER_SET_ACL: "true"
+      KAFKA_ZOOKEEPER_SSL_CLIENT_ENABLE: "true"
+      KAFKA_ZOOKEEPER_SSL_CLIENT_AUTH: "required"
+
+      KAFKA_AUTHORIZER_CLASS_NAME: "kafka.security.authorizer.AclAuthorizer"
+      KAFKA_ZOOKEEPER_CLIENT_CNXN_SOCKET: "org.apache.zookeeper.ClientCnxnSocketNetty"
+      KAFKA_LOG4J_ROOT_LOGLEVEL: "WARN"
+      KAFKA_SUPER_USERS: "User:CN=broker.lokalmaskin;User:CN=kafka-ui;User:CN=admin"
+    healthcheck:
+      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && kafka-cluster cluster-id --bootstrap-server broker1:9092 --config ./bootstrap.conf || exit 1']
+      start_period: "7s"
+      interval: "5s"
+      timeout: "10s"
+      retries: 10
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Brokers/Broker1:/kafka/secrets
+      - ./ContainerData/Kafka/Brokers/Broker1/Data:/var/lib/kafka/data
+
+  broker2:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: broker2
+    container_name: broker2
+    user: 1000:1001
+    depends_on:
+      zookeeper1:
+        required: true
+        restart: false
+        condition: service_healthy
+      zookeeper2:
+        required: true
+        restart: false
+        condition: service_healthy
+      zookeeper3:
+        required: true
+        restart: false
+        condition: service_healthy
+      wait-for-zookeeper-quorum:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    networks:
+      brokers_network:
+        ipv4_address: 172.90.92.12
+        ipv6_address: 2001:9092:9092::12
+      zookeepers_network:
+        ipv4_address: 172.21.82.22
+        ipv6_address: 2001:2181:2181::22
+      apps_network:
+        ipv4_address: 172.80.80.12
+        ipv6_address: 2001:8080:8080::12
+    ports:
+      - "9095:9095"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper1:2181,zookeeper2:2181,zookeeper3:2181"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_INTER_BROKER_LISTENER_NAME: "BROKER"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "BROKER:SSL, ZOOKEEPERS:SSL, APPS:SSL, EXTERNAL_APPS:SSL"
+      KAFKA_LISTENERS: "BROKER://172.90.92.12:9091,ZOOKEEPERS://172.21.82.22:9093,APPS://172.80.80.12:9092,EXTERNAL_APPS://localhost:9095"
+      KAFKA_ADVERTISED_LISTENERS: "BROKER://172.90.92.12:9091,ZOOKEEPERS://172.21.82.22:9093,APPS://172.80.80.12:9092,EXTERNAL_APPS://localhost:9095"
+
+      KAFKA_SSL_CLIENT_AUTH: "required"
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+
+      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_SSL_KEYSTORE_LOCATION: /kafka/secrets/broker2.lokalmaskin.pfx
+      KAFKA_SSL_KEYSTORE_PASSWORD: "Broker_2_demo_password"
+      KAFKA_SSL_KEY_PASSWORD: "Broker_2_demo_password"
+
+      KAFKA_SSL_TRUSTSTORE_TYPE: PEM
+      KAFKA_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/CA_lokalmaskin.crt"
+
+      KAFKA_ZOOKEEPER_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_ZOOKEEPER_SSL_KEYSTORE_LOCATION: /kafka/secrets/broker2.lokalmaskin.pfx
+      KAFKA_ZOOKEEPER_SSL_KEYSTORE_PASSWORD: "Broker_2_demo_password"
+      KAFKA_ZOOKEEPER_SSL_KEY_PASSWORD: "Broker_2_demo_password"
+
+      KAFKA_ZOOKEEPER_SSL_TRUSTSTORE_TYPE: PEM
+      KAFKA_ZOOKEEPER_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/CA_lokalmaskin.crt"
+
+      KAFKA_ZOOKEEPER_SET_ACL: "true"
+      KAFKA_ZOOKEEPER_SSL_CLIENT_ENABLE: "true"
+      KAFKA_ZOOKEEPER_SSL_CLIENT_AUTH: "required"
+
+      KAFKA_AUTHORIZER_CLASS_NAME: "kafka.security.authorizer.AclAuthorizer"
+      KAFKA_ZOOKEEPER_CLIENT_CNXN_SOCKET: "org.apache.zookeeper.ClientCnxnSocketNetty"
+      KAFKA_LOG4J_ROOT_LOGLEVEL: "WARN"
+      KAFKA_SUPER_USERS: "User:CN=broker.lokalmaskin;User:CN=kafka-ui;User:CN=admin"
+    healthcheck:
+      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && kafka-cluster cluster-id --bootstrap-server broker2:9092 --config ./bootstrap.conf || exit 1']
+      start_period: "7s"
+      interval: "5s"
+      timeout: "10s"
+      retries: 10
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Brokers/Broker2:/kafka/secrets
+      - ./ContainerData/Kafka/Brokers/Broker2/Data:/var/lib/kafka/data
+
+  broker3:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: broker3
+    container_name: broker3
+    user: 1000:1001
+    depends_on:
+      zookeeper1:
+        required: true
+        restart: false
+        condition: service_healthy
+      zookeeper2:
+        required: true
+        restart: false
+        condition: service_healthy
+      zookeeper3:
+        required: true
+        restart: false
+        condition: service_healthy
+      wait-for-zookeeper-quorum:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    networks:
+      brokers_network:
+        ipv4_address: 172.90.92.13
+        ipv6_address: 2001:9092:9092::13
+      zookeepers_network:
+        ipv4_address: 172.21.82.23
+        ipv6_address: 2001:2181:2181::23
+      apps_network:
+        ipv4_address: 172.80.80.13
+        ipv6_address: 2001:8080:8080::13
+    ports:
+      - "9096:9096"
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper1:2181,zookeeper2:2181,zookeeper3:2181"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_INTER_BROKER_LISTENER_NAME: "BROKER"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "BROKER:SSL, ZOOKEEPERS:SSL, APPS:SSL, EXTERNAL_APPS:SSL"
+      KAFKA_LISTENERS: "BROKER://172.90.92.13:9091,ZOOKEEPERS://172.21.82.23:9093,APPS://172.80.80.13:9092,EXTERNAL_APPS://localhost:9096"
+      KAFKA_ADVERTISED_LISTENERS: "BROKER://172.90.92.13:9091,ZOOKEEPERS://172.21.82.23:9093,APPS://172.80.80.13:9092,EXTERNAL_APPS://localhost:9096"
+      KAFKA_SSL_CLIENT_AUTH: "required"
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+
+      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_SSL_KEYSTORE_LOCATION: /kafka/secrets/broker3.lokalmaskin.pfx
+      KAFKA_SSL_KEYSTORE_PASSWORD: "Broker_3_demo_password"
+      KAFKA_SSL_KEY_PASSWORD: "Broker_3_demo_password"
+
+      KAFKA_SSL_TRUSTSTORE_TYPE: PEM
+      KAFKA_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/CA_lokalmaskin.crt"
+
+      KAFKA_ZOOKEEPER_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_ZOOKEEPER_SSL_KEYSTORE_LOCATION: /kafka/secrets/broker3.lokalmaskin.pfx
+      KAFKA_ZOOKEEPER_SSL_KEYSTORE_PASSWORD: "Broker_3_demo_password"
+      KAFKA_ZOOKEEPER_SSL_KEY_PASSWORD: "Broker_3_demo_password"
+
+      KAFKA_ZOOKEEPER_SSL_TRUSTSTORE_TYPE: PEM
+      KAFKA_ZOOKEEPER_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/CA_lokalmaskin.crt"
+
+      KAFKA_ZOOKEEPER_SET_ACL: "true"
+      KAFKA_ZOOKEEPER_SSL_CLIENT_ENABLE: "true"
+      KAFKA_ZOOKEEPER_SSL_CLIENT_AUTH: "required"
+
+      KAFKA_AUTHORIZER_CLASS_NAME: "kafka.security.authorizer.AclAuthorizer"
+      KAFKA_ZOOKEEPER_CLIENT_CNXN_SOCKET: "org.apache.zookeeper.ClientCnxnSocketNetty"
+      KAFKA_LOG4J_ROOT_LOGLEVEL: "WARN"
+      KAFKA_SUPER_USERS: "User:CN=broker.lokalmaskin;User:CN=kafka-ui;User:CN=admin"
+    healthcheck:
+      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && kafka-cluster cluster-id --bootstrap-server broker3:9092 --config ./bootstrap.conf || exit 1']
+      start_period: "7s"
+      interval: "5s"
+      timeout: "10s"
+      retries: 10
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Brokers/Broker3:/kafka/secrets
+      - ./ContainerData/Kafka/Brokers/Broker3/Data:/var/lib/kafka/data
+
+  create-acls:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: create-acls
+    container_name: create-acls
+    user: 1000:1001
+    networks:
+      - apps_network
+    depends_on:
+      broker1:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker2:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker3:
+        required: true
+        restart: false
+        condition: service_healthy
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/kafka/secrets
+    entrypoint: [ '/bin/bash', '-c' ]
+    command: |
+      "
+      cd /kafka/secrets
+
+      echo '================ Creating ACLs for Schema Registry ============='
+
+      # https://docs.confluent.io/platform/current/schema-registry/security/index.html#config-acls-schemas-topic
+      echo 'Creating ACLs for schema registry user'
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=schema-registry' --allow-host '*' \\
+                 --producer --consumer --topic '_schemas' --group 'schema-registry'
+
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=schema-registry' --allow-host '*' \\
+                 --operation DescribeConfigs --topic '_schemas'
+
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=schema-registry' --allow-host '*' \\
+                 --operation Describe --topic '_schemas'
+
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=schema-registry' --allow-host '*' \\
+                 --operation Read --topic '_schemas'
+
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=schema-registry' --allow-host '*' \\
+                 --operation Write --topic '_schemas'
+
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=schema-registry' --allow-host '*' \\
+                 --operation Describe --topic '__consumer_offsets'
+
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=schema-registry' --allow-host '*' \\
+                 --operation Create --cluster kafka-cluster
+
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=schema-registry' --allow-host '*' \\
+                 --producer --consumer --topic '_schemas_acl' --group 'schema-registry'
+
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=schema-registry' --allow-host '*' \\
+                 --operation Read --topic '_schemas_acl'
+
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=schema-registry' --allow-host '*' \\
+                 --operation Write --topic '_schemas_acl'
+
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=schema-registry' --allow-host '*' \\
+                 --operation DescribeConfigs --topic '_schemas_acl'
+      echo '================ Done Creating ACLs for Schema Registry ========'
+
+      echo '================ Creating ACLs for Demo Producer User =========='
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=demo-producer' --allow-host '*' \\
+                 --producer --topic 'demo-topic-with-events' --group 'cg.demo-producer.0'
+      echo '================ Done Creating ACLs for Demo Producer User ====='
+
+      echo '================ Creating ACLs for Demo Consumer User =========='
+      kafka-acls --bootstrap-server 'broker1:9092' --command-config 'adminclient-configs.conf' --add \\
+                 --allow-principal 'User:CN=demo-consumer' --allow-host '*' \\
+                 --consumer --topic 'demo-topic-with-active-consumer' --group 'cg.demo-producer.0'
+      echo '================ Done Creating ACLs for Demo Consumer User ====='
+      "
+
+  create-demo-topics:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: create-demo-topics
+    container_name: create-demo-topics
+    user: 1000:1001
+    networks:
+      - apps_network
+    depends_on:
+      broker1:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker2:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker3:
+        required: true
+        restart: false
+        condition: service_healthy
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/kafka/secrets
+    environment:
+      - BOOTSTRAP_SERVERS=broker1:9092
+    entrypoint: [ '/bin/bash', '-c' ]
+    command: |
+      "
+      cd /kafka/secrets
+
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server $$BOOTSTRAP_SERVERS --command-config 'adminclient-configs.conf' --list
+
+      echo '================ Creating Kafka Topics ========================='
+      kafka-topics \\
+        --bootstrap-server $$BOOTSTRAP_SERVERS \\
+        --command-config 'adminclient-configs.conf' \\
+        --create \\
+        --if-not-exists \\
+        --topic 'demo-topic-empty' \\
+        --replication-factor '3' \\
+        --partitions '1' \\
+        --config 'cleanup.policy=delete' \\
+        --config 'max.message.bytes=1000012' \\
+        --config 'min.insync.replicas=2' \\
+        --config 'retention.bytes=-1' \\
+        --config 'retention.ms=-1'
+
+      kafka-topics \\
+        --bootstrap-server $$BOOTSTRAP_SERVERS \\
+        --command-config 'adminclient-configs.conf' \\
+        --create \\
+        --if-not-exists \\
+        --topic 'demo-topic-with-events' \\
+        --replication-factor '3' \\
+        --partitions '1' \\
+        --config 'cleanup.policy=delete' \\
+        --config 'max.message.bytes=1000012' \\
+        --config 'min.insync.replicas=2' \\
+        --config 'retention.bytes=-1' \\
+        --config 'retention.ms=-1'
+
+      kafka-topics \\
+        --bootstrap-server $$BOOTSTRAP_SERVERS \\
+        --command-config 'adminclient-configs.conf' \\
+        --create \\
+        --if-not-exists \\
+        --topic 'demo-topic-with-active-consumer' \\
+        --replication-factor '3' \\
+        --partitions '1' \\
+        --config 'cleanup.policy=delete' \\
+        --config 'max.message.bytes=1000012' \\
+        --config 'min.insync.replicas=2' \\
+        --config 'retention.bytes=-1' \\
+        --config 'retention.ms=-1'
+
+      echo '================ Done Creating Kafka Topics ===================='
+      "
+
+  create-demo-events:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: create-demo-events
+    container_name: create-demo-events
+    user: 1000:1001
+    networks:
+      - apps_network
+    depends_on:
+      broker1:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker2:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker3:
+        required: true
+        restart: false
+        condition: service_healthy
+      create-demo-topics:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+      create-acls:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Users/DemoProducer:/kafka/secrets
+      # - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/kafka/secrets
+    environment:
+      - BOOTSTRAP_SERVERS=broker1:9092
+      - SEPARATOR=|
+      - EVENT_0_KEY_B64=ewogICJ1cHN0cmVhbVN5c3RlbUlkIjogMTIzLAogICJvcmlnaW5TeXN0ZW1JZCI6ICJhYmMiLAogICJzb3VyY2VTeXN0ZW1JZCI6ICLim4QiCn0=
+      - EVENT_0_VALUE_B64=ewogICJjb3JyZWxhdGlvbklkIjogImFiYy0xMjMiLAogICJtZXNzYWdlIjogIkhlbGxvIEthZmthISIKfQ==
+      - EVENT_1_KEY_B64=ewogICJ1cHN0cmVhbVN5c3RlbUlkIjogNDU2LAogICJvcmlnaW5TeXN0ZW1JZCI6ICJpamsiLAogICJzb3VyY2VTeXN0ZW1JZCI6ICLinYQiCn0=
+      - EVENT_1_VALUE_B64=ewogICJjb3JyZWxhdGlvbklkIjogImRlZi00NTYiLAogICJtZXNzYWdlIjogIkhlbGxvIFRvcGljcyEiCn0=
+      - EVENT_2_KEY_B64=ewogICJ1cHN0cmVhbVN5c3RlbUlkIjogNzg5LAogICJvcmlnaW5TeXN0ZW1JZCI6ICJtbm8iLAogICJzb3VyY2VTeXN0ZW1JZCI6ICLwn42nIgp9
+      - EVENT_2_VALUE_B64=ewogICJjb3JyZWxhdGlvbklkIjogImdoaS03ODkiLAogICJtZXNzYWdlIjogIkhlbGxvIEV2ZW50cyEiCn0=
+    entrypoint: [ '/bin/bash', '-c' ]
+    command: |
+      "
+      cd /kafka/secrets
+
+      echo '================ Creating Events on Demo Topic ================='
+
+      event_0_key_decoded=$(echo $$EVENT_0_KEY_B64 | base64 --decode)
+      event_0_value_decoded=$(echo $$EVENT_0_VALUE_B64 | base64 --decode)
+      event_0_message=$(printf '%s%s%s' $$event_0_key_decoded $$SEPARATOR $$event_0_value_decoded)
+      echo $$event_0_message | kafka-console-producer \\
+        --bootstrap-server $$BOOTSTRAP_SERVERS \\
+        --producer.config 'adminclient-configs.conf' \\
+        --topic 'demo-topic-with-events' \\
+        --property parse.key=true \\
+        --property key.separator=$$SEPARATOR
+
+      event_1_key_decoded=$(echo $$EVENT_1_KEY_B64 | base64 --decode)
+      event_1_value_decoded=$(echo $$EVENT_1_VALUE_B64 | base64 --decode)
+      event_1_message=$(printf '%s%s%s' $$event_1_key_decoded $$SEPARATOR $$event_1_value_decoded)
+      echo $$event_1_message | kafka-console-producer \\
+        --bootstrap-server $$BOOTSTRAP_SERVERS \\
+        --producer.config 'adminclient-configs.conf' \\
+        --topic 'demo-topic-with-events' \\
+        --property parse.key=true \\
+        --property key.separator=$$SEPARATOR
+
+      event_2_key_decoded=$(echo $$EVENT_2_KEY_B64 | base64 --decode)
+      event_2_value_decoded=$(echo $$EVENT_2_VALUE_B64 | base64 --decode)
+      event_2_message=$(printf '%s%s%s' $$event_2_key_decoded $$SEPARATOR $$event_2_value_decoded)
+      echo $$event_2_message | kafka-console-producer \\
+        --bootstrap-server $$BOOTSTRAP_SERVERS \\
+        --producer.config 'adminclient-configs.conf' \\
+        --topic 'demo-topic-with-events' \\
+        --property parse.key=true \\
+        --property key.separator=$$SEPARATOR
+
+      echo '================ Done Creating Events on Demo Topic ============'
+      "
+
+  consumer-demo:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: live-demo-consumer
+    container_name: live-demo-consumer
+    user: 1000:1001
+    networks:
+      - apps_network
+    depends_on:
+      broker1:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker2:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker3:
+        required: true
+        restart: false
+        condition: service_healthy
+      create-demo-topics:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+      create-acls:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer:/kafka/secrets
+      # - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/kafka/secrets
+    environment:
+      - BOOTSTRAP_SERVERS=broker1:9092
+    entrypoint: [ '/bin/bash', '-c' ]
+    command: |
+      "
+      cd /kafka/secrets
+
+      echo -e 'Setting up consumer of messages on topic so you can debug what happens when someone is live and consuming'
+      # The `--group` parameter is not optional when running with ACLs, unless you set up a rule so that anyone can use any consumer groups. If you do, if no group is specified, then a random consumer group is created. I would strongly recomend agains that if you have several applications or sets of users needing to co-exist. Also, even for demo uses, having an explicit consumer group makes things easier to follow. To see the effect of the demo consumer, run `docker compose logs start-demo-consumer --follow` in a shell, go to kafka UI in your browser, submit a new event to the topic in kafka UI, and see it come out in the shell.
+      kafka-console-consumer \\
+        --bootstrap-server $$BOOTSTRAP_SERVERS \\
+        --consumer.config 'adminclient-configs.conf' \\
+        --topic 'demo-topic-with-active-consumer' \\
+        --group 'cg.demo-producer.0' \\
+        --formatter kafka.tools.DefaultMessageFormatter \\
+        --property print.timestamp=true \\
+        --property print.key=true \\
+        --property print.value=true \\
+        --from-beginning \\
+      "
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    hostname: schema-registry
+    container_name: schema-registry
+    user: 1000:1001
+    depends_on:
+      broker1:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker2:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker3:
+        required: true
+        restart: false
+        condition: service_healthy
+      create-acls:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    networks:
+      - apps_network
+    ports:
+      - "8083:8083"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: "schema-registry"
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "broker1:9092,broker2:9092,broker3:9092"
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8083"
+
+      SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: "SSL"
+
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_TYPE: "PEM"
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/CA_lokalmaskin.crt"
+
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_TYPE: "PKCS12"
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_LOCATION: "/kafka/secrets/schema-registry.lokalmaskin.pfx"
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_PASSWORD: "Schema_Registry_users_demo_password"
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEY_PASSWORD: "Schema_Registry_users_demo_password"
+
+      SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: info
+    healthcheck:
+      test: nc -z localhost 8083 || exit -1
+      start_period: "5s"
+      interval: "5s"
+      timeout: "2s"
+      retries: 10
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry:/kafka/secrets
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    hostname: kafka-ui
+    container_name: kafka-ui
+    user: 1000:1001
+    depends_on:
+      broker1:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker2:
+        required: true
+        restart: false
+        condition: service_healthy
+      broker3:
+        required: true
+        restart: false
+        condition: service_healthy
+      # schema-registry: # Not strictly needed
+      #   required: true
+      #   restart: false
+      #   condition: service_healthy
+    networks:
+      - apps_network
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: "lokalmaskin"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "broker1:9092,broker2:9092,broker3:9092"
+      # KAFKA_CLUSTERS_0_ZOOKEEPER: "zookeeper1:2181"
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083"
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: "SSL"
+
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_TYPE: "PEM"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/CA_lokalmaskin.crt"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_TYPE: "PKCS12"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_LOCATION: "/kafka/secrets/kafka-ui.lokalmaskin.pfx"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_PASSWORD: "Kafka_UI_users_demo_password"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEY_PASSWORD: "Kafka_UI_users_demo_password"
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Users/KafkaUi:/kafka/secrets
+
+  set-up-container-mount-area:
+    image: debian:stable-slim
+    user: 1000:1001
+    container_name: set-up-container-mount-area
+    volumes:
+      - .:/ProjectDir
+    environment:
+      RESET_EVERYTHING: "false"
+    entrypoint: [ '/bin/bash', '-c' ]
+    command: |
+      "
+      echo '================ Creating Output Directory with gitignore ========='
+      if [ ''$$RESET_EVERYTHING == 'true' ]; then
+        echo 'WARNING: Wiping ALL container data, certificates, everything, and starting fresh!'
+        rm -rf /ProjectDir/ContainerData
+      fi
+
+      mkdir -p /ProjectDir/ContainerData
+
+      if [ ! -f /ProjectDir/ContainerData/.gitignore ]; then
+        echo 'Creating gitignore so that you dont accidentaly check in container data'
+        echo 'If you want some of the container data checked in, simply add an exception to the gitignore'
+        printf '%s\\n' '*' '!.gitignore' > /ProjectDir/ContainerData/.gitignore
+      fi
+
+      echo 'Creating folders for persisting kafka state between runs'
+      mkdir -p /ProjectDir/ContainerData/Kafka
+
+      echo 'Creating folders for persisting zookeepers state between runs'
+
+      mkdir -p /ProjectDir/ContainerData/Kafka/ZooKeepers
+
+      mkdir -p /ProjectDir/ContainerData/Kafka/ZooKeepers/ZooKeeper1
+      mkdir -p /ProjectDir/ContainerData/Kafka/ZooKeepers/ZooKeeper1/Data
+      mkdir -p /ProjectDir/ContainerData/Kafka/ZooKeepers/ZooKeeper1/Logs
+
+      mkdir -p /ProjectDir/ContainerData/Kafka/ZooKeepers/ZooKeeper2
+      mkdir -p /ProjectDir/ContainerData/Kafka/ZooKeepers/ZooKeeper2/Data
+      mkdir -p /ProjectDir/ContainerData/Kafka/ZooKeepers/ZooKeeper2/Logs
+
+      mkdir -p /ProjectDir/ContainerData/Kafka/ZooKeepers/ZooKeeper3
+      mkdir -p /ProjectDir/ContainerData/Kafka/ZooKeepers/ZooKeeper3/Data
+      mkdir -p /ProjectDir/ContainerData/Kafka/ZooKeepers/ZooKeeper3/Logs
+
+      echo 'Creating folders for persisting kafka brokers state between runs'
+
+      mkdir -p /ProjectDir/ContainerData/Kafka/Brokers
+
+      mkdir -p /ProjectDir/ContainerData/Kafka/Brokers/Broker1
+      mkdir -p /ProjectDir/ContainerData/Kafka/Brokers/Broker1/Data
+
+      mkdir -p /ProjectDir/ContainerData/Kafka/Brokers/Broker2
+      mkdir -p /ProjectDir/ContainerData/Kafka/Brokers/Broker2/Data
+
+      mkdir -p /ProjectDir/ContainerData/Kafka/Brokers/Broker3
+      mkdir -p /ProjectDir/ContainerData/Kafka/Brokers/Broker3/Data
+      echo '================ Done Creating Output Directory with gitignore ===='
+      "
+
+  create-certificate-authority:
+    image: localhost/cert-creator:latest
+    user: 1000:1001
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM debian:stable-slim
+
+        RUN apt-get update \
+            && apt-get install -y curl \
+            && apt-get install -y sed \
+            && apt-get install -y openssl \
+            && apt-get install -y coreutils \
+            && apt-get install -y tar
+        # `apt-get install -y base64` is replaced with `apt-get install -y coreutils`
+    container_name: create-certificate-authority
+    depends_on:
+      set-up-container-mount-area:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    volumes:
+      - ./ContainerData:/ContainerData
+    environment:
+      RECREATE_IF_EXISTS: "false"
+    entrypoint: [ '/bin/bash', '-c' ]
+    command: |
+      "
+      echo '================ Setting Up Variables ============================='
+      ENV_NAME='lokalmaskin'
+      VALIDITY_DAYS='365'
+      # Default to 1024, because 4096 is noticeably slow to humans, and default mode here is demo
+      RSA_BITS='1024'
+      CERT_PASSWORD_LENGTH='32'
+
+      CA_PASSWORD_PATH='/ContainerData/GeneratedCerts/CertificateAuthority/CA_'$$ENV_NAME'.password.txt'
+      CA_KEY_PATH='/ContainerData/GeneratedCerts/CertificateAuthority/CA_'$$ENV_NAME'.key'
+      CA_CRT_FILE_NAME='CA_'$$ENV_NAME'.crt'
+      CA_CRT_PATH='/ContainerData/GeneratedCerts/CertificateAuthority/'$$CA_CRT_FILE_NAME
+      echo '================ Done Setting Up Variables ========================'
+
+      if [ -f $$CA_CRT_PATH ] && [ ''$$RECREATE_IF_EXISTS != 'true' ]; then
+        echo 'CA CRT file exists, and recreation not set to true, exiting without creating CA'
+        exit 0
+      fi
+
+      echo '================ Creating CA ======================================'
+      rm -rf /ContainerData/GeneratedCerts/CertificateAuthority
+      mkdir -p /ContainerData/GeneratedCerts/CertificateAuthority
+      cd /ContainerData/GeneratedCerts/CertificateAuthority
+
+      CA_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      # CA_PASSWORD=This_is_guaranteed_to_work!1
+
+      echo $$CA_PASSWORD > $$CA_PASSWORD_PATH
+
+      # echo 'The generated password of the day is:'
+      # cat '$$CA_PASSWORD_PATH'
+      # # echo 'the variable was'
+      # # echo $$CA_PASSWORD
+      # echo 'END The generated password of the day'
+
+      openssl req \\
+        -new \\
+        -x509 \\
+        -keyout $$CA_KEY_PATH \\
+        -newkey 'rsa:'$$RSA_BITS \\
+        -out $$CA_CRT_PATH \\
+        -days $$VALIDITY_DAYS \\
+        -subj '/CN=ca-'$$ENV_NAME'.example.com' \\
+        -passin pass:$$CA_PASSWORD \\
+        -passout file:$$CA_PASSWORD_PATH 2> /dev/null
+
+      echo '================ Done Creating CA ================================='
+      "
+
+  create-certificates:
+    image: localhost/cert-creator:latest
+    user: 1000:1001
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM debian:stable-slim
+
+        RUN apt-get update \
+            && apt-get install -y curl \
+            && apt-get install -y sed \
+            && apt-get install -y openssl \
+            && apt-get install -y coreutils \
+            && apt-get install -y tar
+        # `apt-get install -y base64` is replaced with `apt-get install -y coreutils`
+    container_name: create-certificates
+    depends_on:
+      create-certificate-authority:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    volumes:
+      - ./ContainerData:/ContainerData
+    environment:
+      RECREATE_IF_EXISTS: "false"
+    entrypoint: [ '/bin/bash', '-c' ]
+    command: |
+      "
+      if [ -f /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.lokalmaskin.crt ] && [ ''$$RECREATE_IF_EXISTS != 'true' ]; then
+        echo 'Because Broker1s CRT file exists assuming that all other certs also exist, and recreation not set to true, exiting without creating any certs'
+        exit 0
+      fi
+      echo '================ Setting Up Variables ============================='
+      ENV_NAME='lokalmaskin'
+      VALIDITY_DAYS='365'
+      # Default to 1024, because 4096 is noticeably slow to humans, and default mode here is demo
+      RSA_BITS='1024'
+      CERT_PASSWORD_LENGTH='32'
+      USE_DEMO_PASSWORDS='true'
+
+      CA_PASSWORD_PATH='/ContainerData/GeneratedCerts/CertificateAuthority/CA_'$$ENV_NAME'.password.txt'
+      CA_KEY_PATH='/ContainerData/GeneratedCerts/CertificateAuthority/CA_'$$ENV_NAME'.key'
+      CA_CRT_FILE_NAME='CA_'$$ENV_NAME'.crt'
+      CA_CRT_PATH='/ContainerData/GeneratedCerts/CertificateAuthority/'$$CA_CRT_FILE_NAME
+
+      # Enables 1 acl for all zookeepers
+      ZOOKEEPERS_CN='zookeeper.'$$ENV_NAME
+      # Enables 1 acl for all brokers
+      BROKERS_CN='broker.'$$ENV_NAME
+
+      ZOOKEEPER_ADVERTISED_PORT='2181'
+
+      # For each zookeeper and broker, specify the addresses it's supposed to answer on, so that it may present a vaild identity for the endpoint.
+      # If you need names, like for docker compose/kubernetes internal networks or urls, like broker1 or broker1.kafka.example.com, put them in a DNS alt name in your certificate signing request config.
+      # If your clients use IP addresses for finding their bootstrap servers, put them in an IP alt name.
+      ZOOKEEPER_1_DNS_1='zookeeper1'
+      ZOOKEEPER_1_DNS_2='zookeeper1.'$$ENV_NAME
+      ZOOKEEPER_1_IP_1='172.21.82.11'
+      ZOOKEEPER_1_IP_2='2001:2181:2181::11'
+
+      ZOOKEEPER_2_DNS_1='zookeeper2'
+      ZOOKEEPER_2_DNS_2='zookeeper2.'$$ENV_NAME
+      ZOOKEEPER_2_IP_1='172.21.82.12'
+      ZOOKEEPER_2_IP_2='2001:2181:2181::12'
+
+      ZOOKEEPER_3_DNS_1='zookeeper3'
+      ZOOKEEPER_3_DNS_2='zookeeper3.'$$ENV_NAME
+      ZOOKEEPER_3_IP_1='172.21.82.13'
+      ZOOKEEPER_3_IP_2='2001:2181:2181::13'
+
+      BROKER_1_DNS_1='broker1'
+      BROKER_1_DNS_2='broker1.'$$ENV_NAME
+      BROKER_1_DNS_3='localhost'
+      # Addresses on broker network
+      BROKER_1_IP_1='172.90.92.11'
+      BROKER_1_IP_2='2001:9092:9092::11'
+      # Addresses on zookeeper network
+      BROKER_1_IP_3='172.21.82.21'
+      BROKER_1_IP_4='2001:2181:2181::21'
+      # Addresses on app network
+      BROKER_1_IP_5='172.80.80.11'
+      BROKER_1_IP_6='2001:8080:8080::11'
+
+      BROKER_2_DNS_1='broker2'
+      BROKER_2_DNS_2='broker2.'$$ENV_NAME
+      BROKER_2_DNS_3='localhost'
+      # Addresses on broker network
+      BROKER_2_IP_1='172.90.92.12'
+      BROKER_2_IP_2='2001:9092:9092::12'
+      # Addresses on zookeeper network
+      BROKER_2_IP_3='172.21.82.22'
+      BROKER_2_IP_4='2001:2181:2181::22'
+      # Addresses on app network
+      BROKER_2_IP_5='172.80.80.12'
+      BROKER_2_IP_6='2001:8080:8080::12'
+
+      BROKER_3_DNS_1='broker3'
+      BROKER_3_DNS_2='broker3.'$$ENV_NAME
+      BROKER_3_DNS_3='localhost'
+      # Addresses on broker network
+      BROKER_3_IP_1='172.90.92.13'
+      BROKER_3_IP_2='2001:9092:9092::13'
+      # Addresses on zookeeper network
+      BROKER_3_IP_3='172.21.82.23'
+      BROKER_3_IP_4='2001:2181:2181::23'
+      # Addresses on app network
+      BROKER_3_IP_5='172.80.80.13'
+      BROKER_3_IP_6='2001:8080:8080::13'
+
+      echo '================ Done Setting Up Variables ========================'
+
+      echo '================ Creating Certs for ZooKeeper1 ===================='
+      echo 'Cleaning and setting up folder structure for zookeeper 1 certificate'
+      rm -rf /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1
+      mkdir -p /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1
+      cd /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1
+
+      echo 'Setting up password for zookeeper 1 certificate'
+      ZOOKEEPER_1_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
+        echo 'WARNING: Setting up local demo password for zookeeper 1 certificate'
+        ZOOKEEPER_1_PASSWORD='ZooKeeper_1_demo_password'
+      fi
+      echo $$ZOOKEEPER_1_PASSWORD > '/ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.'$$ENV_NAME'.password.txt'
+
+      echo 'Creating private key for zookeeper 1 certificate'
+      openssl genrsa \\
+        -passout file:/ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.password.txt \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.key $$RSA_BITS
+
+      echo 'Creating certificate signing request config for zookeeper 1 certificate'
+      printf '%s\\n' \\
+        '[req]' \\
+        'default_bits = '$$RSA_BITS \\
+        'prompt = no' \\
+        'default_md = sha512' \\
+        'distinguished_name = req_distinguished_name' \\
+        'x509_extensions = v3_req' \\
+        '' \\
+        '[req_distinguished_name]' \\
+        '' \\
+        '[v3_req]' \\
+        'basicConstraints=CA:FALSE' \\
+        'subjectAltName = @alt_names' \\
+        '' \\
+        '[alt_names]' \\
+        'DNS.1 = '$$ZOOKEEPER_1_DNS_1 \\
+        'DNS.2 = '$$ZOOKEEPER_1_DNS_2 \\
+        'IP.1 = '$$ZOOKEEPER_1_IP_1 \\
+        'IP.2 = '$$ZOOKEEPER_1_IP_1 > /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.csr.config
+
+      echo 'Creating certificate signing request for zookeeper 1 certificate'
+      openssl req \\
+        -new \\
+        -key /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.key \\
+        -subj '/CN='$$ZOOKEEPERS_CN \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.csr \\
+        -config /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.csr.config
+
+      echo 'Creating and signing certificate for zookeeper 1'
+      openssl x509 \\
+        -req \\
+        -CA $$CA_CRT_PATH \\
+        -CAkey $$CA_KEY_PATH \\
+        -passin file:$$CA_PASSWORD_PATH \\
+        -in /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.csr \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.crt \\
+        -days $$VALIDITY_DAYS \\
+        -CAcreateserial \\
+        -extensions v3_req \\
+        -extfile /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.csr.config
+
+      echo 'Creating pkcs12 certificate bundle for zookeeper 1'
+      openssl pkcs12 \\
+        -inkey /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.key \\
+        -in /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.crt \\
+        -passin pass:$$ZOOKEEPER_1_PASSWORD \\
+        -passout pass:$$ZOOKEEPER_1_PASSWORD \\
+        -export \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zookeeper1.$$ENV_NAME.pfx
+
+      echo 'Copying CA certificate/public key to zookeeper 1 folder'
+      cp $$CA_CRT_PATH /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/
+
+      echo 'Creating mtls config file for zookeeper 1'
+      printf '%s\\n' \\
+        '# Connect to the ZooKeeper port configured for TLS' \\
+        'zookeeper.connect=zookeeper1:'$$ZOOKEEPER_ADVERTISED_PORT \\
+        '# Required to use TLS-to-ZooKeeper (default is false)' \\
+        'zookeeper.ssl.client.enable=true' \\
+        '# Required to use TLS-to-ZooKeeper' \\
+        'zookeeper.clientCnxnSocket=org.apache.zookeeper.ClientCnxnSocketNetty' \\
+        '# Define key/trust stores to use TLS-to-ZooKeeper; ignored unless zookeeper.ssl.client.enable=true' \\
+        'zookeeper.ssl.keystore.location=zookeeper1.'$$ENV_NAME'.pfx' \\
+        'zookeeper.ssl.keystore.password='$$ZOOKEEPER_1_PASSWORD \\
+        'zookeeper.ssl.keystore.type=PKCS12' \\
+        'zookeeper.ssl.truststore.location='$$CA_CRT_FILE_NAME \\
+        'zookeeper.ssl.truststore.type=PEM' \\
+        'zookeeper.set.acl=true' > /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper1/zkp-mtls.conf
+
+      echo '================ Done Creating Certs for ZooKeeper1 ==============='
+
+      echo '================ Creating Certs for ZooKeeper2 ===================='
+      echo 'Cleaning and setting up folder structure for zookeeper 2 certificate'
+      rm -rf /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2
+      mkdir -p /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2
+      cd /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2
+
+      echo 'Setting up password for zookeeper 2 certificate'
+      ZOOKEEPER_2_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
+        echo 'WARNING: Setting up local demo password for zookeeper 2 certificate'
+        ZOOKEEPER_2_PASSWORD='ZooKeeper_2_demo_password'
+      fi
+      echo $$ZOOKEEPER_2_PASSWORD > '/ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.'$$ENV_NAME'.password.txt'
+
+      echo 'Creating private key for zookeeper 2 certificate'
+      openssl genrsa \\
+        -passout file:/ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.password.txt \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.key $$RSA_BITS
+
+      echo 'Creating certificate signing request config for zookeeper 2 certificate'
+      printf '%s\\n' \\
+        '[req]' \\
+        'default_bits = '$$RSA_BITS \\
+        'prompt = no' \\
+        'default_md = sha512' \\
+        'distinguished_name = req_distinguished_name' \\
+        'x509_extensions = v3_req' \\
+        '' \\
+        '[req_distinguished_name]' \\
+        '' \\
+        '[v3_req]' \\
+        'basicConstraints=CA:FALSE' \\
+        'subjectAltName = @alt_names' \\
+        '' \\
+        '[alt_names]' \\
+        'DNS.1 = '$$ZOOKEEPER_2_DNS_1 \\
+        'DNS.2 = '$$ZOOKEEPER_2_DNS_2 \\
+        'IP.1 = '$$ZOOKEEPER_2_IP_1 \\
+        'IP.2 = '$$ZOOKEEPER_2_IP_1 > /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.csr.config
+
+      echo 'Creating certificate signing request for zookeeper 2 certificate'
+      openssl req \\
+        -new \\
+        -key /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.key \\
+        -subj '/CN='$$ZOOKEEPERS_CN \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.csr \\
+        -config /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.csr.config
+
+      echo 'Creating and signing certificate for zookeeper 2'
+      openssl x509 \\
+        -req \\
+        -CA $$CA_CRT_PATH \\
+        -CAkey $$CA_KEY_PATH \\
+        -passin file:$$CA_PASSWORD_PATH \\
+        -in /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.csr \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.crt \\
+        -days $$VALIDITY_DAYS \\
+        -CAcreateserial \\
+        -extensions v3_req \\
+        -extfile /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.csr.config
+
+      echo 'Creating pkcs12 certificate bundle for zookeeper 2'
+      openssl pkcs12 \\
+        -inkey /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.key \\
+        -in /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.crt \\
+        -passin pass:$$ZOOKEEPER_2_PASSWORD \\
+        -passout pass:$$ZOOKEEPER_2_PASSWORD \\
+        -export \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zookeeper2.$$ENV_NAME.pfx
+
+      echo 'Copying CA certificate/public key to zookeeper 2 folder'
+      cp $$CA_CRT_PATH /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/
+
+      echo 'Creating mtls config file for zookeeper 2'
+      printf '%s\\n' \\
+        '# Connect to the ZooKeeper port configured for TLS' \\
+        'zookeeper.connect=zookeeper2:'$$ZOOKEEPER_ADVERTISED_PORT \\
+        '# Required to use TLS-to-ZooKeeper (default is false)' \\
+        'zookeeper.ssl.client.enable=true' \\
+        '# Required to use TLS-to-ZooKeeper' \\
+        'zookeeper.clientCnxnSocket=org.apache.zookeeper.ClientCnxnSocketNetty' \\
+        '# Define key/trust stores to use TLS-to-ZooKeeper; ignored unless zookeeper.ssl.client.enable=true' \\
+        'zookeeper.ssl.keystore.location=zookeeper2.'$$ENV_NAME'.pfx' \\
+        'zookeeper.ssl.keystore.password='$$ZOOKEEPER_2_PASSWORD \\
+        'zookeeper.ssl.keystore.type=PKCS12' \\
+        'zookeeper.ssl.truststore.location='$$CA_CRT_FILE_NAME \\
+        'zookeeper.ssl.truststore.type=PEM' \\
+        'zookeeper.set.acl=true' > /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper2/zkp-mtls.conf
+      echo '================ Done Creating Certs for ZooKeeper2 ==============='
+
+      echo '================ Creating Certs for ZooKeeper3 ===================='
+      echo 'Cleaning and setting up folder structure for zookeeper 3 certificate'
+      rm -rf /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3
+      mkdir -p /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3
+      cd /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3
+
+      echo 'Setting up password for zookeeper 3 certificate'
+      ZOOKEEPER_3_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
+        echo 'WARNING: Setting up local demo password for zookeeper 3 certificate'
+        ZOOKEEPER_3_PASSWORD='ZooKeeper_3_demo_password'
+      fi
+      echo $$ZOOKEEPER_3_PASSWORD > '/ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.'$$ENV_NAME'.password.txt'
+
+      echo 'Creating private key for zookeeper 3 certificate'
+      openssl genrsa \\
+        -passout file:/ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.password.txt \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.key $$RSA_BITS
+
+      echo 'Creating certificate signing request config for zookeeper 3 certificate'
+      printf '%s\\n' \\
+        '[req]' \\
+        'default_bits = '$$RSA_BITS \\
+        'prompt = no' \\
+        'default_md = sha512' \\
+        'distinguished_name = req_distinguished_name' \\
+        'x509_extensions = v3_req' \\
+        '' \\
+        '[req_distinguished_name]' \\
+        '' \\
+        '[v3_req]' \\
+        'basicConstraints=CA:FALSE' \\
+        'subjectAltName = @alt_names' \\
+        '' \\
+        '[alt_names]' \\
+        'DNS.1 = '$$ZOOKEEPER_3_DNS_1 \\
+        'DNS.2 = '$$ZOOKEEPER_3_DNS_2 \\
+        'IP.1 = '$$ZOOKEEPER_3_IP_1 \\
+        'IP.2 = '$$ZOOKEEPER_3_IP_1 > /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.csr.config
+
+      echo 'Creating certificate signing request for zookeeper 3 certificate'
+      openssl req \\
+        -new \\
+        -key /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.key \\
+        -subj '/CN='$$ZOOKEEPERS_CN \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.csr \\
+        -config /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.csr.config
+
+      echo 'Creating and signing certificate for zookeeper 3'
+      openssl x509 \\
+        -req \\
+        -CA $$CA_CRT_PATH \\
+        -CAkey $$CA_KEY_PATH \\
+        -passin file:$$CA_PASSWORD_PATH \\
+        -in /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.csr \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.crt \\
+        -days $$VALIDITY_DAYS \\
+        -CAcreateserial \\
+        -extensions v3_req \\
+        -extfile /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.csr.config
+
+      echo 'Creating pkcs12 certificate bundle for zookeeper 3'
+      openssl pkcs12 \\
+        -inkey /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.key \\
+        -in /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.crt \\
+        -passin pass:$$ZOOKEEPER_3_PASSWORD \\
+        -passout pass:$$ZOOKEEPER_3_PASSWORD \\
+        -export \\
+        -out /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zookeeper3.$$ENV_NAME.pfx
+
+      echo 'Copying CA certificate/public key to zookeeper 3 folder'
+      cp $$CA_CRT_PATH /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/
+
+      echo 'Creating mtls config file for zookeeper 3'
+      printf '%s\\n' \\
+        '# Connect to the ZooKeeper port configured for TLS' \\
+        'zookeeper.connect=zookeeper3:'$$ZOOKEEPER_ADVERTISED_PORT \\
+        '# Required to use TLS-to-ZooKeeper (default is false)' \\
+        'zookeeper.ssl.client.enable=true' \\
+        '# Required to use TLS-to-ZooKeeper' \\
+        'zookeeper.clientCnxnSocket=org.apache.zookeeper.ClientCnxnSocketNetty' \\
+        '# Define key/trust stores to use TLS-to-ZooKeeper; ignored unless zookeeper.ssl.client.enable=true' \\
+        'zookeeper.ssl.keystore.location=zookeeper3.'$$ENV_NAME'.pfx' \\
+        'zookeeper.ssl.keystore.password='$$ZOOKEEPER_3_PASSWORD \\
+        'zookeeper.ssl.keystore.type=PKCS12' \\
+        'zookeeper.ssl.truststore.location='$$CA_CRT_FILE_NAME \\
+        'zookeeper.ssl.truststore.type=PEM' \\
+        'zookeeper.set.acl=true' > /ContainerData/GeneratedCerts/Kafka/ZooKeepers/ZooKeeper3/zkp-mtls.conf
+      echo '================ Done Creating Certs for ZooKeeper3 ==============='
+
+      echo '================ Creating Certs for Broker1 ===================='
+      echo 'Cleaning and setting up folder structure for broker 1 certificate'
+      rm -rf /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1
+      mkdir -p /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1
+      cd /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1
+
+      echo 'Setting up password for broker 1 certificate'
+      BROKER_1_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
+        echo 'WARNING: Setting up local demo password for broker 1 certificate'
+        BROKER_1_PASSWORD='Broker_1_demo_password'
+      fi
+      echo $$BROKER_1_PASSWORD > '/ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.'$$ENV_NAME'.password.txt'
+
+      echo 'Creating private key for broker 1 certificate'
+      openssl genrsa \\
+        -passout file:/ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.password.txt \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.key $$RSA_BITS
+
+      echo 'Creating certificate signing request config for broker 1 certificate'
+      printf '%s\\n' \\
+        '[req]' \\
+        'default_bits = '$$RSA_BITS \\
+        'prompt = no' \\
+        'default_md = sha512' \\
+        'distinguished_name = req_distinguished_name' \\
+        'x509_extensions = v3_req' \\
+        '' \\
+        '[req_distinguished_name]' \\
+        '' \\
+        '[v3_req]' \\
+        'basicConstraints=CA:FALSE' \\
+        'subjectAltName = @alt_names' \\
+        '' \\
+        '[alt_names]' \\
+        'DNS.1 = '$$BROKER_1_DNS_1 \\
+        'DNS.2 = '$$BROKER_1_DNS_2 \\
+        'DNS.3 = '$$BROKER_1_DNS_3 \\
+        'IP.1 = '$$BROKER_1_IP_1 \\
+        'IP.2 = '$$BROKER_1_IP_2 \\
+        'IP.3 = '$$BROKER_1_IP_3 \\
+        'IP.4 = '$$BROKER_1_IP_4 \\
+        'IP.5 = '$$BROKER_1_IP_5 \\
+        'IP.6 = '$$BROKER_1_IP_6 > /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.csr.config
+
+      echo 'Creating certificate signing request for broker 1 certificate'
+      openssl req \\
+        -new \\
+        -key /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.key \\
+        -subj '/CN='$$BROKERS_CN \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.csr \\
+        -config /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.csr.config
+
+      echo 'Creating and signing certificate for broker 1'
+      openssl x509 \\
+        -req \\
+        -CA $$CA_CRT_PATH \\
+        -CAkey $$CA_KEY_PATH \\
+        -passin file:$$CA_PASSWORD_PATH \\
+        -in /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.csr \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.crt \\
+        -days $$VALIDITY_DAYS \\
+        -CAcreateserial \\
+        -extensions v3_req \\
+        -extfile /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.csr.config
+
+      echo 'Creating pkcs12 certificate bundle for broker 1'
+      openssl pkcs12 \\
+        -inkey /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.key \\
+        -in /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.crt \\
+        -passin pass:$$BROKER_1_PASSWORD \\
+        -passout pass:$$BROKER_1_PASSWORD \\
+        -export \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.$$ENV_NAME.pfx
+
+      echo 'Copying CA certificate/public key to broker 1 folder'
+      cp $$CA_CRT_PATH /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/
+
+      echo 'Creating mtls config file for broker 1'
+      printf '%s\\n' \\
+        '# Connect to the ZooKeeper port configured for TLS' \\
+        'zookeeper.connect=zookeeper1:'$$ZOOKEEPER_ADVERTISED_PORT \\
+        '# Required to use TLS-to-ZooKeeper (default is false)' \\
+        'zookeeper.ssl.client.enable=true' \\
+        '# Required to use TLS-to-ZooKeeper' \\
+        'zookeeper.clientCnxnSocket=org.apache.zookeeper.ClientCnxnSocketNetty' \\
+        '# Define key/trust stores to use TLS-to-ZooKeeper; ignored unless zookeeper.ssl.client.enable=true' \\
+        'zookeeper.ssl.keystore.location=broker1.'$$ENV_NAME'.pfx' \\
+        'zookeeper.ssl.keystore.password='$$BROKER_1_PASSWORD \\
+        'zookeeper.ssl.keystore.type=PKCS12' \\
+        'zookeeper.ssl.truststore.location='$$CA_CRT_FILE_NAME \\
+        'zookeeper.ssl.truststore.type=PEM' \\
+        'zookeeper.set.acl=true' > /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/zkp-mtls.conf
+
+      echo 'Creating bootstrap config file for broker 1'
+      printf '%s\\n' \\
+        'security.protocol=SSL' \\
+        'ssl.keystore.location=broker1.'$$ENV_NAME'.pfx' \\
+        'ssl.keystore.password='$$BROKER_1_PASSWORD \\
+        'ssl.keystore.type=PKCS12' \\
+        'ssl.truststore.type=PEM' \\
+        'ssl.truststore.location='$$CA_CRT_FILE_NAME > /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/bootstrap.conf
+      echo '================ Done Creating Certs for Broker1 ==============='
+
+      echo '================ Creating Certs for Broker2 ===================='
+      echo 'Cleaning and setting up folder structure for broker 2 certificate'
+      rm -rf /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2
+      mkdir -p /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2
+      cd /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2
+
+      echo 'Setting up password for broker 2 certificate'
+      BROKER_2_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
+        echo 'WARNING: Setting up local demo password for broker 2 certificate'
+        BROKER_2_PASSWORD='Broker_2_demo_password'
+      fi
+      echo $$BROKER_2_PASSWORD > '/ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.'$$ENV_NAME'.password.txt'
+
+      echo 'Creating private key for broker 2 certificate'
+      openssl genrsa \\
+        -passout file:/ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.password.txt \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.key $$RSA_BITS
+
+      echo 'Creating certificate signing request config for broker 2 certificate'
+      printf '%s\\n' \\
+        '[req]' \\
+        'default_bits = '$$RSA_BITS \\
+        'prompt = no' \\
+        'default_md = sha512' \\
+        'distinguished_name = req_distinguished_name' \\
+        'x509_extensions = v3_req' \\
+        '' \\
+        '[req_distinguished_name]' \\
+        '' \\
+        '[v3_req]' \\
+        'basicConstraints=CA:FALSE' \\
+        'subjectAltName = @alt_names' \\
+        '' \\
+        '[alt_names]' \\
+        'DNS.1 = '$$BROKER_2_DNS_1 \\
+        'DNS.2 = '$$BROKER_2_DNS_2 \\
+        'DNS.3 = '$$BROKER_2_DNS_3 \\
+        'IP.1 = '$$BROKER_2_IP_1 \\
+        'IP.2 = '$$BROKER_2_IP_2 \\
+        'IP.3 = '$$BROKER_2_IP_3 \\
+        'IP.4 = '$$BROKER_2_IP_4 \\
+        'IP.5 = '$$BROKER_2_IP_5 \\
+        'IP.6 = '$$BROKER_2_IP_6 > /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.csr.config
+
+      echo 'Creating certificate signing request for broker 2 certificate'
+      openssl req \\
+        -new \\
+        -key /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.key \\
+        -subj '/CN='$$BROKERS_CN \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.csr \\
+        -config /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.csr.config
+
+      echo 'Creating and signing certificate for broker 2'
+      openssl x509 \\
+        -req \\
+        -CA $$CA_CRT_PATH \\
+        -CAkey $$CA_KEY_PATH \\
+        -passin file:$$CA_PASSWORD_PATH \\
+        -in /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.csr \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.crt \\
+        -days $$VALIDITY_DAYS \\
+        -CAcreateserial \\
+        -extensions v3_req \\
+        -extfile /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.csr.config
+
+      echo 'Creating pkcs12 certificate bundle for broker 2'
+      openssl pkcs12 \\
+        -inkey /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.key \\
+        -in /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.crt \\
+        -passin pass:$$BROKER_2_PASSWORD \\
+        -passout pass:$$BROKER_2_PASSWORD \\
+        -export \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/broker2.$$ENV_NAME.pfx
+
+      echo 'Copying CA certificate/public key to broker 2 folder'
+      cp $$CA_CRT_PATH /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/
+
+      echo 'Creating mtls config file for broker 2'
+      printf '%s\\n' \\
+        '# Connect to the ZooKeeper port configured for TLS' \\
+        'zookeeper.connect=zookeeper2:'$$ZOOKEEPER_ADVERTISED_PORT \\
+        '# Required to use TLS-to-ZooKeeper (default is false)' \\
+        'zookeeper.ssl.client.enable=true' \\
+        '# Required to use TLS-to-ZooKeeper' \\
+        'zookeeper.clientCnxnSocket=org.apache.zookeeper.ClientCnxnSocketNetty' \\
+        '# Define key/trust stores to use TLS-to-ZooKeeper; ignored unless zookeeper.ssl.client.enable=true' \\
+        'zookeeper.ssl.keystore.location=broker2.'$$ENV_NAME'.pfx' \\
+        'zookeeper.ssl.keystore.password='$$BROKER_2_PASSWORD \\
+        'zookeeper.ssl.keystore.type=PKCS12' \\
+        'zookeeper.ssl.truststore.location='$$CA_CRT_FILE_NAME \\
+        'zookeeper.ssl.truststore.type=PEM' \\
+        'zookeeper.set.acl=true' > /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/zkp-mtls.conf
+
+      echo 'Creating bootstrap config file for broker 2'
+      printf '%s\\n' \\
+        'security.protocol=SSL' \\
+        'ssl.keystore.location=broker2.'$$ENV_NAME'.pfx' \\
+        'ssl.keystore.password='$$BROKER_2_PASSWORD \\
+        'ssl.keystore.type=PKCS12' \\
+        'ssl.truststore.type=PEM' \\
+        'ssl.truststore.location='$$CA_CRT_FILE_NAME > /ContainerData/GeneratedCerts/Kafka/Brokers/Broker2/bootstrap.conf
+      echo '================ Done Creating Certs for Broker2 ==============='
+
+      echo '================ Creating Certs for Broker3 ===================='
+      echo 'Cleaning and setting up folder structure for broker 3 certificate'
+      rm -rf /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3
+      mkdir -p /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3
+      cd /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3
+
+      echo 'Setting up password for broker 3 certificate'
+      BROKER_3_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
+        echo 'WARNING: Setting up local demo password for broker 3 certificate'
+        BROKER_3_PASSWORD='Broker_3_demo_password'
+      fi
+      echo $$BROKER_3_PASSWORD > '/ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.'$$ENV_NAME'.password.txt'
+
+      echo 'Creating private key for broker 3 certificate'
+      openssl genrsa \\
+        -passout file:/ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.password.txt \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.key $$RSA_BITS
+
+      echo 'Creating certificate signing request config for broker 3 certificate'
+      printf '%s\\n' \\
+        '[req]' \\
+        'default_bits = '$$RSA_BITS \\
+        'prompt = no' \\
+        'default_md = sha512' \\
+        'distinguished_name = req_distinguished_name' \\
+        'x509_extensions = v3_req' \\
+        '' \\
+        '[req_distinguished_name]' \\
+        '' \\
+        '[v3_req]' \\
+        'basicConstraints=CA:FALSE' \\
+        'subjectAltName = @alt_names' \\
+        '' \\
+        '[alt_names]' \\
+        'DNS.1 = '$$BROKER_3_DNS_1 \\
+        'DNS.2 = '$$BROKER_3_DNS_2 \\
+        'DNS.3 = '$$BROKER_3_DNS_3 \\
+        'IP.1 = '$$BROKER_3_IP_1 \\
+        'IP.2 = '$$BROKER_3_IP_2 \\
+        'IP.3 = '$$BROKER_3_IP_3 \\
+        'IP.4 = '$$BROKER_3_IP_4 \\
+        'IP.5 = '$$BROKER_3_IP_5 \\
+        'IP.6 = '$$BROKER_3_IP_6 > /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.csr.config
+
+      echo 'Creating certificate signing request for broker 3 certificate'
+      openssl req \\
+        -new \\
+        -key /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.key \\
+        -subj '/CN='$$BROKERS_CN \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.csr \\
+        -config /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.csr.config
+
+      echo 'Creating and signing certificate for broker 3'
+      openssl x509 \\
+        -req \\
+        -CA $$CA_CRT_PATH \\
+        -CAkey $$CA_KEY_PATH \\
+        -passin file:$$CA_PASSWORD_PATH \\
+        -in /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.csr \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.crt \\
+        -days $$VALIDITY_DAYS \\
+        -CAcreateserial \\
+        -extensions v3_req \\
+        -extfile /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.csr.config
+
+      echo 'Creating pkcs12 certificate bundle for broker 3'
+      openssl pkcs12 \\
+        -inkey /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.key \\
+        -in /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.crt \\
+        -passin pass:$$BROKER_3_PASSWORD \\
+        -passout pass:$$BROKER_3_PASSWORD \\
+        -export \\
+        -out /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/broker3.$$ENV_NAME.pfx
+
+      echo 'Copying CA certificate/public key to broker 3 folder'
+      cp $$CA_CRT_PATH /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/
+
+      echo 'Creating mtls config file for broker 3'
+      printf '%s\\n' \\
+        '# Connect to the ZooKeeper port configured for TLS' \\
+        'zookeeper.connect=zookeeper3:'$$ZOOKEEPER_ADVERTISED_PORT \\
+        '# Required to use TLS-to-ZooKeeper (default is false)' \\
+        'zookeeper.ssl.client.enable=true' \\
+        '# Required to use TLS-to-ZooKeeper' \\
+        'zookeeper.clientCnxnSocket=org.apache.zookeeper.ClientCnxnSocketNetty' \\
+        '# Define key/trust stores to use TLS-to-ZooKeeper; ignored unless zookeeper.ssl.client.enable=true' \\
+        'zookeeper.ssl.keystore.location=broker3.'$$ENV_NAME'.pfx' \\
+        'zookeeper.ssl.keystore.password='$$BROKER_3_PASSWORD \\
+        'zookeeper.ssl.keystore.type=PKCS12' \\
+        'zookeeper.ssl.truststore.location='$$CA_CRT_FILE_NAME \\
+        'zookeeper.ssl.truststore.type=PEM' \\
+        'zookeeper.set.acl=true' > /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/zkp-mtls.conf
+
+      echo 'Creating bootstrap config file for broker 3'
+      printf '%s\\n' \\
+        'security.protocol=SSL' \\
+        'ssl.keystore.location=broker3.'$$ENV_NAME'.pfx' \\
+        'ssl.keystore.password='$$BROKER_3_PASSWORD \\
+        'ssl.keystore.type=PKCS12' \\
+        'ssl.truststore.type=PEM' \\
+        'ssl.truststore.location='$$CA_CRT_FILE_NAME > /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/bootstrap.conf
+      echo '================ Done Creating Certs for Broker3 ==============='
+
+      echo '================ Creating Certs for Kafka UI ==================='
+      echo 'Cleaning and setting up folder structure for Kafka UI certificate'
+      rm -rf /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi
+      mkdir -p /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi
+      cd /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi
+
+      echo 'Setting up password for Kafka UI certificate'
+      KAFKA_UI_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
+        echo 'WARNING: Setting up local demo password for Kafka UI certificate'
+        KAFKA_UI_PASSWORD='Kafka_UI_users_demo_password'
+      fi
+      echo $$KAFKA_UI_PASSWORD > '/ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.'$$ENV_NAME'.password.txt'
+
+      echo 'Creating private key for Kafka UI certificate'
+      openssl genrsa \\
+        -passout file:/ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.password.txt \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.key $$RSA_BITS
+
+      echo 'Creating certificate signing request config for Kafka UI certificate'
+      printf '%s\\n' \\
+        '[req]' \\
+        'default_bits = '$$RSA_BITS \\
+        'prompt = no' \\
+        'default_md = sha512' \\
+        'distinguished_name = req_distinguished_name' \\
+        'x509_extensions = v3_req' \\
+        '' \\
+        '[req_distinguished_name]' \\
+        '' \\
+        '[v3_req]' \\
+        'basicConstraints=CA:FALSE' > /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.csr.config
+
+      echo 'Creating certificate signing request for Kafka UI certificate'
+      openssl req \\
+        -new \\
+        -key /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.key \\
+        -subj '/CN=kafka-ui' \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.csr \\
+        -config /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.csr.config
+
+      echo 'Creating and signing certificate for Kafka UI'
+      openssl x509 \\
+        -req \\
+        -CA $$CA_CRT_PATH \\
+        -CAkey $$CA_KEY_PATH \\
+        -passin file:$$CA_PASSWORD_PATH \\
+        -in /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.csr \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.crt \\
+        -days $$VALIDITY_DAYS \\
+        -CAcreateserial \\
+        -extensions v3_req \\
+        -extfile /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.csr.config
+
+      echo 'Creating pkcs12 certificate bundle for Kafka UI'
+      openssl pkcs12 \\
+        -inkey /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.key \\
+        -in /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.crt \\
+        -passin pass:$$KAFKA_UI_PASSWORD \\
+        -passout pass:$$KAFKA_UI_PASSWORD \\
+        -export \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/kafka-ui.$$ENV_NAME.pfx
+
+      echo 'Copying CA certificate/public key to Kafka UI folder'
+      cp $$CA_CRT_PATH /ContainerData/GeneratedCerts/Kafka/Users/KafkaUi/
+      echo '================ Done Creating Certs for Kafka UI =============='
+
+      echo '================ Creating Certs for Schema Registry ============'
+      echo 'Cleaning and setting up folder structure for Schema Registry certificate'
+      rm -rf /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry
+      mkdir -p /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry
+      cd /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry
+
+      echo 'Setting up password for Schema Registry certificate'
+      SCHEMA_REGISTRY_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
+        echo 'WARNING: Setting up local demo password for Schema Registry certificate'
+        SCHEMA_REGISTRY_PASSWORD='Schema_Registry_users_demo_password'
+      fi
+      echo $$SCHEMA_REGISTRY_PASSWORD > '/ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.'$$ENV_NAME'.password.txt'
+
+      echo 'Creating private key for Schema Registry certificate'
+      openssl genrsa \\
+        -passout file:/ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.password.txt \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.key $$RSA_BITS
+
+      echo 'Creating certificate signing request config for Schema Registry certificate'
+      printf '%s\\n' \\
+        '[req]' \\
+        'default_bits = '$$RSA_BITS \\
+        'prompt = no' \\
+        'default_md = sha512' \\
+        'distinguished_name = req_distinguished_name' \\
+        'x509_extensions = v3_req' \\
+        '' \\
+        '[req_distinguished_name]' \\
+        '' \\
+        '[v3_req]' \\
+        'basicConstraints=CA:FALSE' > /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.csr.config
+
+      echo 'Creating certificate signing request for Schema Registry certificate'
+      openssl req \\
+        -new \\
+        -key /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.key \\
+        -subj '/CN=schema-registry' \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.csr \\
+        -config /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.csr.config
+
+      echo 'Creating and signing certificate for Schema Registry'
+      openssl x509 \\
+        -req \\
+        -CA $$CA_CRT_PATH \\
+        -CAkey $$CA_KEY_PATH \\
+        -passin file:$$CA_PASSWORD_PATH \\
+        -in /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.csr \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.crt \\
+        -days $$VALIDITY_DAYS \\
+        -CAcreateserial \\
+        -extensions v3_req \\
+        -extfile /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.csr.config
+
+      echo 'Creating pkcs12 certificate bundle for Schema Registry'
+      openssl pkcs12 \\
+        -inkey /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.key \\
+        -in /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.crt \\
+        -passin pass:$$SCHEMA_REGISTRY_PASSWORD \\
+        -passout pass:$$SCHEMA_REGISTRY_PASSWORD \\
+        -export \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/schema-registry.$$ENV_NAME.pfx
+
+      echo 'Copying CA certificate/public key to Schema Registry folder'
+      cp $$CA_CRT_PATH /ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry/
+      echo '================ Done Creating Certs for Schema Registry ======='
+
+      echo '================ Creating Certs for Admin User ================='
+      echo 'Cleaning and setting up folder structure for admin user certificate'
+      rm -rf /ContainerData/GeneratedCerts/Kafka/Users/Admin
+      mkdir -p /ContainerData/GeneratedCerts/Kafka/Users/Admin
+      cd /ContainerData/GeneratedCerts/Kafka/Users/Admin
+
+      echo 'Setting up password for admin user certificate'
+      ADMIN_USER_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      echo $$ADMIN_USER_PASSWORD > '/ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.'$$ENV_NAME'.password.txt'
+
+      echo 'Creating private key for admin user certificate'
+      openssl genrsa \\
+        -passout file:/ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.password.txt \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.key $$RSA_BITS
+
+      echo 'Creating certificate signing request config for admin user certificate'
+      printf '%s\\n' \\
+        '[req]' \\
+        'default_bits = '$$RSA_BITS \\
+        'prompt = no' \\
+        'default_md = sha512' \\
+        'distinguished_name = req_distinguished_name' \\
+        'x509_extensions = v3_req' \\
+        '' \\
+        '[req_distinguished_name]' \\
+        '' \\
+        '[v3_req]' \\
+        'basicConstraints=CA:FALSE' > /ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.csr.config
+
+      echo 'Creating certificate signing request for admin user certificate'
+      openssl req \\
+        -new \\
+        -key /ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.key \\
+        -subj '/CN=admin' \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.csr \\
+        -config /ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.csr.config
+
+      echo 'Creating and signing certificate for admin user'
+      openssl x509 \\
+        -req \\
+        -CA $$CA_CRT_PATH \\
+        -CAkey $$CA_KEY_PATH \\
+        -passin file:$$CA_PASSWORD_PATH \\
+        -in /ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.csr \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.crt \\
+        -days $$VALIDITY_DAYS \\
+        -CAcreateserial \\
+        -extensions v3_req \\
+        -extfile /ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.csr.config
+
+      echo 'Creating pkcs12 certificate bundle for admin user'
+      openssl pkcs12 \\
+        -inkey /ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.key \\
+        -in /ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.crt \\
+        -passin pass:$$ADMIN_USER_PASSWORD \\
+        -passout pass:$$ADMIN_USER_PASSWORD \\
+        -export \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/Admin/admin.$$ENV_NAME.pfx
+
+      echo 'Copying CA certificate/public key to admin user folder'
+      cp $$CA_CRT_PATH /ContainerData/GeneratedCerts/Kafka/Users/Admin/
+
+      echo 'Creating admin client config file for admin user'
+      printf '%s\\n' \\
+        'security.protocol=SSL' \\
+        'ssl.keystore.location=admin.'$$ENV_NAME'.pfx' \\
+        'ssl.keystore.password='$$ADMIN_USER_PASSWORD \\
+        'ssl.keystore.type=PKCS12' \\
+        'ssl.truststore.type=PEM' \\
+        'ssl.truststore.location='$$CA_CRT_FILE_NAME > /ContainerData/GeneratedCerts/Kafka/Users/Admin/adminclient-configs.conf
+      echo '================ Done Creating Certs for Admin User ============'
+
+      echo '================ Creating Certs for Demo Producer User ========='
+      echo 'Cleaning and setting up folder structure for demo producer user certificate'
+      rm -rf /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer
+      mkdir -p /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer
+      cd /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer
+
+      echo 'Setting up password for demo producer user certificate'
+      DEMO_PRODUCER_USER_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      echo $$DEMO_PRODUCER_USER_PASSWORD > '/ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.'$$ENV_NAME'.password.txt'
+
+      echo 'Creating private key for demo producer user certificate'
+      openssl genrsa \\
+        -passout file:/ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.password.txt \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.key $$RSA_BITS
+
+      echo 'Creating certificate signing request config for demo producer user certificate'
+      printf '%s\\n' \\
+        '[req]' \\
+        'default_bits = '$$RSA_BITS \\
+        'prompt = no' \\
+        'default_md = sha512' \\
+        'distinguished_name = req_distinguished_name' \\
+        'x509_extensions = v3_req' \\
+        '' \\
+        '[req_distinguished_name]' \\
+        '' \\
+        '[v3_req]' \\
+        'basicConstraints=CA:FALSE' > /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.csr.config
+
+      echo 'Creating certificate signing request for demo producer user certificate'
+      openssl req \\
+        -new \\
+        -key /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.key \\
+        -subj '/CN=demo-producer' \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.csr \\
+        -config /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.csr.config
+
+      echo 'Creating and signing certificate for demo producer user'
+      openssl x509 \\
+        -req \\
+        -CA $$CA_CRT_PATH \\
+        -CAkey $$CA_KEY_PATH \\
+        -passin file:$$CA_PASSWORD_PATH \\
+        -in /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.csr \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.crt \\
+        -days $$VALIDITY_DAYS \\
+        -CAcreateserial \\
+        -extensions v3_req \\
+        -extfile /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.csr.config
+
+      echo 'Creating pkcs12 certificate bundle for demo producer user'
+      openssl pkcs12 \\
+        -inkey /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.key \\
+        -in /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.crt \\
+        -passin pass:$$DEMO_PRODUCER_USER_PASSWORD \\
+        -passout pass:$$DEMO_PRODUCER_USER_PASSWORD \\
+        -export \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/demo-producer.$$ENV_NAME.pfx
+
+      echo 'Copying CA certificate/public key to demo producer user folder'
+      cp $$CA_CRT_PATH /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/
+
+      echo 'Creating admin client config file for demo producer user'
+      printf '%s\\n' \\
+        'security.protocol=SSL' \\
+        'ssl.keystore.location=demo-producer.'$$ENV_NAME'.pfx' \\
+        'ssl.keystore.password='$$DEMO_PRODUCER_USER_PASSWORD \\
+        'ssl.keystore.type=PKCS12' \\
+        'ssl.truststore.type=PEM' \\
+        'ssl.truststore.location='$$CA_CRT_FILE_NAME > /ContainerData/GeneratedCerts/Kafka/Users/DemoProducer/adminclient-configs.conf
+      echo '================ Done Creating Certs for Demo Producer User ===='
+
+      echo '================ Creating Certs for Demo Consumer User ========='
+      echo 'Cleaning and setting up folder structure for demo consumer user certificate'
+      rm -rf /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer
+      mkdir -p /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer
+      cd /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer
+
+      echo 'Setting up password for demo consumer user certificate'
+      DEMO_CONSUMER_USER_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+      echo $$DEMO_CONSUMER_USER_PASSWORD > '/ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.'$$ENV_NAME'.password.txt'
+
+      echo 'Creating private key for demo consumer user certificate'
+      openssl genrsa \\
+        -passout file:/ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.password.txt \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.key $$RSA_BITS
+
+      echo 'Creating certificate signing request config for demo consumer user certificate'
+      printf '%s\\n' \\
+        '[req]' \\
+        'default_bits = '$$RSA_BITS \\
+        'prompt = no' \\
+        'default_md = sha512' \\
+        'distinguished_name = req_distinguished_name' \\
+        'x509_extensions = v3_req' \\
+        '' \\
+        '[req_distinguished_name]' \\
+        '' \\
+        '[v3_req]' \\
+        'basicConstraints=CA:FALSE' > /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.csr.config
+
+      echo 'Creating certificate signing request for demo consumer user certificate'
+      openssl req \\
+        -new \\
+        -key /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.key \\
+        -subj '/CN=demo-consumer' \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.csr \\
+        -config /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.csr.config
+
+      echo 'Creating and signing certificate for demo consumer user'
+      openssl x509 \\
+        -req \\
+        -CA $$CA_CRT_PATH \\
+        -CAkey $$CA_KEY_PATH \\
+        -passin file:$$CA_PASSWORD_PATH \\
+        -in /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.csr \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.crt \\
+        -days $$VALIDITY_DAYS \\
+        -CAcreateserial \\
+        -extensions v3_req \\
+        -extfile /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.csr.config
+
+      echo 'Creating pkcs12 certificate bundle for demo consumer user'
+      openssl pkcs12 \\
+        -inkey /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.key \\
+        -in /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.crt \\
+        -passin pass:$$DEMO_CONSUMER_USER_PASSWORD \\
+        -passout pass:$$DEMO_CONSUMER_USER_PASSWORD \\
+        -export \\
+        -out /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/demo-consumer.$$ENV_NAME.pfx
+
+      echo 'Copying CA certificate/public key to demo consumer user folder'
+      cp $$CA_CRT_PATH /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/
+
+      echo 'Creating admin client config file for demo consumer user'
+      printf '%s\\n' \\
+        'security.protocol=SSL' \\
+        'ssl.keystore.location=demo-consumer.'$$ENV_NAME'.pfx' \\
+        'ssl.keystore.password='$$DEMO_CONSUMER_USER_PASSWORD \\
+        'ssl.keystore.type=PKCS12' \\
+        'ssl.truststore.type=PEM' \\
+        'ssl.truststore.location='$$CA_CRT_FILE_NAME > /ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer/adminclient-configs.conf
+      echo '================ Done Creating Certs for Demo Consumer User ===='
+
+      "
+
+networks:
+  zookeepers_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.21.82.0/24"
+        - subnet: "2001:2181:2181::/64"
+  brokers_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.90.92.0/24"
+        - subnet: "2001:9092:9092::/64"
+  apps_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.80.80.0/24"
+        - subnet: "2001:8080:8080::/64"
