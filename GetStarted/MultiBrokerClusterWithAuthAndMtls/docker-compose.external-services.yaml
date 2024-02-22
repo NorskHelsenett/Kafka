@@ -1,0 +1,160 @@
+version: '3.8'
+
+# Depends on the core infrastructure compones in `docker-compose.yaml` running first.
+# For a more "day to day" scenario, rather than "see, it all works when you run `docker compose up -d`!", you probably want the other file to be the special file invoked with `docker compose --file filename.yaml up -d`, and this one to be the default docker-compose.yaml file.
+# If you do, beware that `docker compose up --remove-orpans` will take down the containers/services from the other compose.
+
+networks:
+  apps_network:
+    name: apps_network
+    external: true
+
+
+services:
+  external-consumer:
+    image: confluentinc/cp-schema-registry:7.5.3
+    hostname: external-consumer
+    container_name: external-consumer
+    user: 1000:1001
+    networks:
+      - apps_network
+    volumes:
+      # - ./ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer:/kafka/secrets # Or you can use admin credentials by mounting those secrets as show below instead
+      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/kafka/secrets
+    environment:
+      BOOTSTRAP_SERVERS: "broker1:9092"
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083"
+      _JAVA_OPTIONS: "-Xmx64M -Xms64M"
+    entrypoint:
+      - '/bin/bash'
+      - '-c'
+      - |
+        cd /kafka/secrets
+
+        /usr/bin/kafka-json-schema-console-consumer \
+          --consumer.config 'adminclient-configs.conf' \
+          --bootstrap-server $$BOOTSTRAP_SERVERS \
+          --property schema.registry.url=$$KAFKA_CLUSTERS_0_SCHEMAREGISTRY \
+          --topic Users \
+          --group 'cg.as-admin-this-can-be-anything' \
+          --property print.timestamp=true \
+          --property print.key=true \
+          --property print.value=true \
+          --from-beginning
+
+  inline-dotnet-consumer:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    user: 1000:1001
+    container_name: inline-dotnet-consumer
+    networks:
+      - apps_network
+    volumes:
+      # - ./ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer:/kafka/secrets # Or you can use admin credentials by mounting those secrets as show below instead
+      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/kafka/secrets
+      - ./ContainerData:/ContainerData
+    environment:
+      BOOTSTRAP_SERVERS: "broker1:9092"
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083"
+
+      # Allow dotnet build to properly run even if is not as root user
+      DISABLE_AUTH: 'true'
+      DB_ENGINE: 'sqlite'
+      DOTNET_CLI_HOME: "/tmp/DOTNET_CLI_HOME"
+
+      PROGRAM_CS: |
+        using Confluent.Kafka;
+        using Confluent.Kafka.SyncOverAsync;
+        using Confluent.SchemaRegistry.Serdes;
+
+        var config = new ConsumerConfig()
+        {
+            BootstrapServers = "172.80.80.11:9092",
+            GroupId = "cg.dotnet-demo-consumer.0",
+            //EnablePartitionEof = true,
+            AutoOffsetReset = AutoOffsetReset.Earliest,
+            EnableAutoCommit = true,
+            SecurityProtocol = SecurityProtocol.Ssl,
+            SslCaPem = File.ReadAllText("/kafka/secrets/CA_lokalmaskin.crt"),
+            SslCertificatePem = File.ReadAllText("/kafka/secrets/admin.lokalmaskin.crt"),
+            SslKeyPem = File.ReadAllText("/kafka/secrets/admin.lokalmaskin.key"),
+            SslKeyPassword = File.ReadAllText("/kafka/secrets/admin.lokalmaskin.password.txt")
+        };
+
+        var serializer = new JsonDeserializer<TheSchemaTypeAsNativeStructure>();
+
+        var consumer = new ConsumerBuilder<string, TheSchemaTypeAsNativeStructure>(config)
+            .SetPartitionsAssignedHandler((c, partitions) =>
+            {
+                var offsets = partitions.Select(tp => new TopicPartitionOffset(tp, Offset.Beginning));
+                return offsets;
+            })
+            .SetValueDeserializer(serializer.AsSyncOverAsync())
+            .Build();
+
+        try
+        {
+            consumer.Subscribe("Users");
+            var cts = new CancellationTokenSource();
+            var cancellationToken = cts.Token;
+            AppDomain.CurrentDomain.ProcessExit += (sender, args) => cts.Cancel();
+            Console.CancelKeyPress += (sender, args) => cts.Cancel();
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var result = consumer.Consume(cancellationToken);
+                if (result == null)
+                {
+                    Console.WriteLine("We've reached the end of the Users topic.");
+                    Thread.Sleep(TimeSpan.FromSeconds(8));
+                }
+                else
+                {
+                    Console.WriteLine($"The next event on topic {result.TopicPartitionOffset.Topic} partition {result.TopicPartitionOffset.Partition.Value} offset {result.TopicPartitionOffset.Offset.Value} recieved to the topic at the time {result.Message.Timestamp.UtcDateTime:u} has the value {result.Message.Value}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error when reading from Users topic");
+            Console.WriteLine(ex.ToString());
+        }
+        finally
+        {
+            Console.WriteLine("Disconnecting consumer from Kafka cluster, leaving consumer group and all that");
+            consumer.Close();
+        }
+
+        Console.WriteLine("Demo dotnet consumer is finished! Exiting");
+
+        public record TheSchemaTypeAsNativeStructure
+        {
+            public required string id { get; init; }
+            public required string name { get; init; }
+            public required ContactDetails[] contactDetails { get; init; }
+            public required DateTimeOffset createdAt { get; init; }
+            public required string createdBy { get; init; }
+            public string[]? tags { get; init; }
+        }
+
+        public record ContactDetails
+        {
+            public required string kind { get; init; }
+            public required string value { get; init; }
+            public required bool primary { get; init; }
+        }
+    entrypoint:
+      - '/bin/bash'
+      - '-c'
+      - |
+        cd /ContainerData
+        mkdir -p /ContainerData/DemoApplications
+        cd /ContainerData/DemoApplications
+        rm -rf /ContainerData/DemoApplications/DotnetConsumer
+        mkdir -p /ContainerData/DemoApplications/DotnetConsumer
+        cd /ContainerData/DemoApplications/DotnetConsumer
+
+        dotnet new console
+        dotnet add package "Confluent.Kafka"
+        dotnet add package "Confluent.SchemaRegistry.Serdes.Json"
+        echo "$$PROGRAM_CS" > Program.cs
+
+        dotnet run
