@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Depends on the core infrastructure compones in `docker-compose.yaml` running first.
 # For a more "day to day" scenario, rather than "see, it all works when you run `docker compose up -d`!", you probably want the other file to be the special file invoked with `docker compose --file filename.yaml up -d`, and this one to be the default docker-compose.yaml file.
 # If you do, beware that `docker compose up --remove-orpans` will take down the containers/services from the other compose.
@@ -8,7 +6,6 @@ networks:
   apps_network:
     name: apps_network
     external: true
-
 
 services:
   external-consumer:
@@ -20,7 +17,7 @@ services:
       - apps_network
     volumes:
       # - ./ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer:/kafka/secrets # Or you can use admin credentials by mounting those secrets as show below instead
-      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/kafka/secrets
+      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/secrets/kafka
     environment:
       BOOTSTRAP_SERVERS: "broker1:9092"
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083"
@@ -29,7 +26,7 @@ services:
       - '/bin/bash'
       - '-c'
       - |
-        cd /kafka/secrets
+        cd /secrets/kafka
 
         /usr/bin/kafka-json-schema-console-consumer \
           --consumer.config 'adminclient-configs.conf' \
@@ -50,7 +47,7 @@ services:
       - apps_network
     volumes:
       # - ./ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer:/kafka/secrets # Or you can use admin credentials by mounting those secrets as show below instead
-      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/kafka/secrets
+      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/secrets/kafka
       - ./ContainerData:/ContainerData
     environment:
       BOOTSTRAP_SERVERS: "broker1:9092"
@@ -74,10 +71,10 @@ services:
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = true,
             SecurityProtocol = SecurityProtocol.Ssl,
-            SslCaPem = File.ReadAllText("/kafka/secrets/CA_lokalmaskin.crt"),
-            SslCertificatePem = File.ReadAllText("/kafka/secrets/admin.lokalmaskin.crt"),
-            SslKeyPem = File.ReadAllText("/kafka/secrets/admin.lokalmaskin.key"),
-            SslKeyPassword = File.ReadAllText("/kafka/secrets/admin.lokalmaskin.password.txt")
+            SslCaPem = File.ReadAllText("/secrets/kafka/ca.crt"),
+            SslCertificatePem = File.ReadAllText("/secrets/kafka/acl-principal.crt"),
+            SslKeyPem = File.ReadAllText("/secrets/kafka/acl-principal.key"),
+            SslKeyPassword = File.ReadAllText("/secrets/kafka/password.txt")
         };
 
         var serializer = new JsonDeserializer<TheSchemaTypeAsNativeStructure>();
