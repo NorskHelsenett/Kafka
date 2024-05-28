@@ -196,7 +196,7 @@ services:
       - '/bin/bash'
       - '-c'
       - |
-        if [ -f /ContainerData/GeneratedCerts/Kafka/Brokers/Broker1/broker1.lokalmaskin.crt ] && [ ''$$RECREATE_IF_EXISTS != 'true' ]; then
+        if [ -f /ContainerData/GeneratedCerts/Kafka/Brokers/broker1/acl-principal.pfx ] && [ ''$$RECREATE_IF_EXISTS != 'true' ]; then
           echo 'Because Broker1s CRT file exists assuming that all other certs also exist, and recreation not set to true, exiting without creating any certs'
           exit 0
         fi
