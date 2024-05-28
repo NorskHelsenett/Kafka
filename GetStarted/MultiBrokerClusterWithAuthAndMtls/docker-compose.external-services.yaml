@@ -16,8 +16,8 @@ services:
     networks:
       - apps_network
     volumes:
-      # - ./ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer:/kafka/secrets # Or you can use admin credentials by mounting those secrets as show below instead
-      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/secrets/kafka
+      # - ./ContainerData/GeneratedCerts/Kafka/Users/demo-consumer:/kafka/secrets # Or you can use admin credentials by mounting those secrets as show below instead
+      - ./ContainerData/GeneratedCerts/Kafka/Users/admin:/secrets/kafka
     environment:
       BOOTSTRAP_SERVERS: "broker1:9092"
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083"
@@ -46,8 +46,8 @@ services:
     networks:
       - apps_network
     volumes:
-      # - ./ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer:/kafka/secrets # Or you can use admin credentials by mounting those secrets as show below instead
-      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/secrets/kafka
+      # - ./ContainerData/GeneratedCerts/Kafka/Users/demo-consumer:/kafka/secrets # Or you can use admin credentials by mounting those secrets as show below instead
+      - ./ContainerData/GeneratedCerts/Kafka/Users/admin:/secrets/kafka
       - ./ContainerData:/ContainerData
     environment:
       BOOTSTRAP_SERVERS: "broker1:9092"

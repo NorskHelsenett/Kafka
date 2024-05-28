@@ -24,7 +24,6 @@
 #     - Set up log shipping and handling
 #     - Consider kafka UI having/being an admin user, and the existence of admin users in general
 #     - Now that we're half way in 2023, you might want to do this with kubernetes instead
-#       - Now that we're half way in 2023, zookeepers are legacy, use new cool k-raft feature instead and run only brokers.
 
 networks:
   controllers_network:
@@ -72,7 +71,7 @@ services:
         if [ ! -f /ProjectDir/ContainerData/.gitignore ]; then
           echo 'Creating gitignore so that you dont accidentaly check in container data'
           echo 'If you want some of the container data checked in, simply add an exception to the gitignore'
-          printf '%s\n' '*' '!.gitignore' > /ProjectDir/ContainerData/.gitignore
+          printf '%s\n' '*' '#!.gitignore' > /ProjectDir/ContainerData/.gitignore
         fi
 
         echo 'Creating folders for persisting kafka state between runs'
@@ -526,365 +525,91 @@ services:
           'ssl.truststore.location='$$CA_CRT_FILE_NAME > /ContainerData/GeneratedCerts/Kafka/Brokers/Broker3/bootstrap.conf
         echo '================ Done Creating Certs for Broker3 ==============='
 
-        echo '================ Creating Certs for Kafka UI ==================='
-        USER_CN=kafka-ui
-        USER_OUTPUT_DIR=/ContainerData/GeneratedCerts/Kafka/Users/KafkaUi
-        echo 'Cleaning and setting up folder structure for Kafka UI certificate'
-        rm -rf $$USER_OUTPUT_DIR
-        mkdir -p $$USER_OUTPUT_DIR
-        cd $$USER_OUTPUT_DIR
+        function CreateUserCerts {
+          local USER_CN=$$1
+          local USER_OUTPUT_DIR="/ContainerData/GeneratedCerts/Kafka/Users/$$1"
+          echo "Cleaning and setting up folder structure for $$USER_CN certificate"
+          rm -rf $$USER_OUTPUT_DIR
+          mkdir -p $$USER_OUTPUT_DIR
+          pushd $$USER_OUTPUT_DIR
 
-        echo 'Setting up password for Kafka UI certificate'
-        USER_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
-        if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
-          echo 'WARNING: Setting up local demo password for Kafka UI certificate'
-          USER_PASSWORD='Kafka_UI_users_demo_password'
-        fi
-        echo $$USER_PASSWORD > $$USER_OUTPUT_DIR/password.txt
+          echo "Setting up password for $$USER_CN certificate"
+          local USER_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+          if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
+            echo "WARNING: Setting up local demo password for $$USER_CN certificate"
+            USER_PASSWORD='demo_cert_password'
+          fi
+          echo $$USER_PASSWORD > $$USER_OUTPUT_DIR/password.txt
 
-        echo 'Creating private key for Kafka UI certificate'
-        openssl genrsa \
-          -passout file:$$USER_OUTPUT_DIR/password.txt \
-          -out $$USER_OUTPUT_DIR/acl-principal.key $$RSA_BITS
+          echo "Creating private key for $$USER_CN certificate"
+          openssl genrsa \
+            -passout file:$$USER_OUTPUT_DIR/password.txt \
+            -out $$USER_OUTPUT_DIR/acl-principal.key $$RSA_BITS
 
-        echo 'Creating certificate signing request config for Kafka UI certificate'
-        printf '%s\n' \
-          '[req]' \
-          'default_bits = '$$RSA_BITS \
-          'prompt = no' \
-          'default_md = sha512' \
-          'distinguished_name = req_distinguished_name' \
-          'x509_extensions = v3_req' \
-          '' \
-          '[req_distinguished_name]' \
-          '' \
-          '[v3_req]' \
-          'basicConstraints=CA:FALSE' > $$USER_OUTPUT_DIR/acl-principal.csr.config
+          echo "Creating certificate signing request config for $$USER_CN certificate"
+          printf '%s\n' \
+            '[req]' \
+            'default_bits = '$$RSA_BITS \
+            'prompt = no' \
+            'default_md = sha512' \
+            'distinguished_name = req_distinguished_name' \
+            'x509_extensions = v3_req' \
+            '' \
+            '[req_distinguished_name]' \
+            '' \
+            '[v3_req]' \
+              'basicConstraints=CA:FALSE' > $$USER_OUTPUT_DIR/acl-principal.csr.config
 
-        echo 'Creating certificate signing request for Kafka UI certificate'
-        openssl req \
-          -new \
-          -key $$USER_OUTPUT_DIR/acl-principal.key \
-          -subj /CN=$$USER_CN \
-          -out $$USER_OUTPUT_DIR/acl-principal.csr \
-          -config $$USER_OUTPUT_DIR/acl-principal.csr.config
+          echo "Creating certificate signing request for $$USER_CN certificate"
+          openssl req \
+            -new \
+            -key $$USER_OUTPUT_DIR/acl-principal.key \
+            -subj /CN=$$USER_CN \
+            -out $$USER_OUTPUT_DIR/acl-principal.csr \
+            -config $$USER_OUTPUT_DIR/acl-principal.csr.config
 
-        echo 'Creating and signing certificate for Kafka UI'
-        openssl x509 \
-          -req \
-          -CA $$CA_CRT_PATH \
-          -CAkey $$CA_KEY_PATH \
-          -passin file:$$CA_PASSWORD_PATH \
-          -in $$USER_OUTPUT_DIR/acl-principal.csr \
-          -out $$USER_OUTPUT_DIR/acl-principal.crt \
-          -days $$VALIDITY_DAYS \
-          -CAcreateserial \
-          -extensions v3_req \
-          -extfile $$USER_OUTPUT_DIR/acl-principal.csr.config
+          echo "Creating and signing certificate for $$USER_CN"
+          openssl x509 \
+            -req \
+            -CA $$CA_CRT_PATH \
+            -CAkey $$CA_KEY_PATH \
+            -passin file:$$CA_PASSWORD_PATH \
+            -in $$USER_OUTPUT_DIR/acl-principal.csr \
+            -out $$USER_OUTPUT_DIR/acl-principal.crt \
+            -days $$VALIDITY_DAYS \
+            -CAcreateserial \
+            -extensions v3_req \
+            -extfile $$USER_OUTPUT_DIR/acl-principal.csr.config
 
-        echo 'Creating pkcs12 certificate bundle for Kafka UI'
-        openssl pkcs12 \
-          -inkey $$USER_OUTPUT_DIR/acl-principal.key \
-          -in $$USER_OUTPUT_DIR/acl-principal.crt \
-          -passin pass:$$USER_PASSWORD \
-          -passout pass:$$USER_PASSWORD \
-          -export \
-          -out $$USER_OUTPUT_DIR/acl-principal.pfx
+          echo "Creating pkcs12 certificate bundle for $$USER_CN"
+          openssl pkcs12 \
+            -inkey $$USER_OUTPUT_DIR/acl-principal.key \
+            -in $$USER_OUTPUT_DIR/acl-principal.crt \
+            -passin pass:$$USER_PASSWORD \
+            -passout pass:$$USER_PASSWORD \
+            -export \
+            -out $$USER_OUTPUT_DIR/acl-principal.pfx
 
-        echo 'Copying CA certificate/public key to Kafka UI folder'
-        cp $$CA_CRT_PATH $$USER_OUTPUT_DIR/
-        echo '================ Done Creating Certs for Kafka UI =============='
+          echo "Copying CA certificate/public key to $$USER_CN folder"
+          cp $$CA_CRT_PATH $$USER_OUTPUT_DIR/
 
-        echo '================ Creating Certs for Schema Registry ============'
-        USER_CN=schema-registry
-        USER_OUTPUT_DIR=/ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry
-        echo 'Cleaning and setting up folder structure for Schema Registry certificate'
-        rm -rf $$USER_OUTPUT_DIR
-        mkdir -p $$USER_OUTPUT_DIR
-        cd $$USER_OUTPUT_DIR
+          echo "Creating admin client config file for $$USER_CN"
+          printf '%s\n' \
+            'security.protocol=SSL' \
+            'ssl.keystore.location=acl-principal.pfx' \
+            'ssl.keystore.password='$$USER_PASSWORD \
+            'ssl.keystore.type=PKCS12' \
+            'ssl.truststore.type=PEM' \
+            'ssl.truststore.location='$$CA_CRT_FILE_NAME > $$USER_OUTPUT_DIR/adminclient-configs.conf
 
-        echo 'Setting up password for Schema Registry certificate'
-        USER_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
-        if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
-          echo 'WARNING: Setting up local demo password for Schema Registry certificate'
-          USER_PASSWORD='Schema_Registry_users_demo_password'
-        fi
-        echo $$USER_PASSWORD > $$USER_OUTPUT_DIR/password.txt
+          popd
+        }
 
-        echo 'Creating private key for Schema Registry certificate'
-        openssl genrsa \
-          -passout file:$$USER_OUTPUT_DIR/password.txt \
-          -out $$USER_OUTPUT_DIR/acl-principal.key $$RSA_BITS
-
-        echo 'Creating certificate signing request config for Schema Registry certificate'
-        printf '%s\n' \
-          '[req]' \
-          'default_bits = '$$RSA_BITS \
-          'prompt = no' \
-          'default_md = sha512' \
-          'distinguished_name = req_distinguished_name' \
-          'x509_extensions = v3_req' \
-          '' \
-          '[req_distinguished_name]' \
-          '' \
-          '[v3_req]' \
-          'basicConstraints=CA:FALSE' > $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating certificate signing request for Schema Registry certificate'
-        openssl req \
-          -new \
-          -key $$USER_OUTPUT_DIR/acl-principal.key \
-          -subj /CN=$$USER_CN \
-          -out $$USER_OUTPUT_DIR/acl-principal.csr \
-          -config $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating and signing certificate for Schema Registry'
-        openssl x509 \
-          -req \
-          -CA $$CA_CRT_PATH \
-          -CAkey $$CA_KEY_PATH \
-          -passin file:$$CA_PASSWORD_PATH \
-          -in $$USER_OUTPUT_DIR/acl-principal.csr \
-          -out $$USER_OUTPUT_DIR/acl-principal.crt \
-          -days $$VALIDITY_DAYS \
-          -CAcreateserial \
-          -extensions v3_req \
-          -extfile $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating pkcs12 certificate bundle for Schema Registry'
-        openssl pkcs12 \
-          -inkey $$USER_OUTPUT_DIR/acl-principal.key \
-          -in $$USER_OUTPUT_DIR/acl-principal.crt \
-          -passin pass:$$USER_PASSWORD \
-          -passout pass:$$USER_PASSWORD \
-          -export \
-          -out $$USER_OUTPUT_DIR/acl-principal.pfx
-
-        echo 'Copying CA certificate/public key to Schema Registry folder'
-        cp $$CA_CRT_PATH $$USER_OUTPUT_DIR/
-        echo '================ Done Creating Certs for Schema Registry ======='
-
-        echo '================ Creating Certs for Admin User ================='
-        USER_CN=admin
-        USER_OUTPUT_DIR=/ContainerData/GeneratedCerts/Kafka/Users/Admin
-        echo 'Cleaning and setting up folder structure for admin user certificate'
-        rm -rf $$USER_OUTPUT_DIR
-        mkdir -p $$USER_OUTPUT_DIR
-        cd $$USER_OUTPUT_DIR
-
-        echo 'Setting up password for admin user certificate'
-        USER_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
-        echo $$USER_PASSWORD > $$USER_OUTPUT_DIR/password.txt
-
-        echo 'Creating private key for admin user certificate'
-        openssl genrsa \
-          -passout file:$$USER_OUTPUT_DIR/password.txt \
-          -out $$USER_OUTPUT_DIR/acl-principal.key $$RSA_BITS
-
-        echo 'Creating certificate signing request config for admin user certificate'
-        printf '%s\n' \
-          '[req]' \
-          'default_bits = '$$RSA_BITS \
-          'prompt = no' \
-          'default_md = sha512' \
-          'distinguished_name = req_distinguished_name' \
-          'x509_extensions = v3_req' \
-          '' \
-          '[req_distinguished_name]' \
-          '' \
-          '[v3_req]' \
-          'basicConstraints=CA:FALSE' > $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating certificate signing request for admin user certificate'
-        openssl req \
-          -new \
-          -key $$USER_OUTPUT_DIR/acl-principal.key \
-          -subj /CN=$$USER_CN \
-          -out $$USER_OUTPUT_DIR/acl-principal.csr \
-          -config $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating and signing certificate for admin user'
-        openssl x509 \
-          -req \
-          -CA $$CA_CRT_PATH \
-          -CAkey $$CA_KEY_PATH \
-          -passin file:$$CA_PASSWORD_PATH \
-          -in $$USER_OUTPUT_DIR/acl-principal.csr \
-          -out $$USER_OUTPUT_DIR/acl-principal.crt \
-          -days $$VALIDITY_DAYS \
-          -CAcreateserial \
-          -extensions v3_req \
-          -extfile $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating pkcs12 certificate bundle for admin user'
-        openssl pkcs12 \
-          -inkey $$USER_OUTPUT_DIR/acl-principal.key \
-          -in $$USER_OUTPUT_DIR/acl-principal.crt \
-          -passin pass:$$USER_PASSWORD \
-          -passout pass:$$USER_PASSWORD \
-          -export \
-          -out $$USER_OUTPUT_DIR/acl-principal.pfx
-
-        echo 'Copying CA certificate/public key to admin user folder'
-        cp $$CA_CRT_PATH $$USER_OUTPUT_DIR/
-
-        echo 'Creating admin client config file for admin user'
-        printf '%s\n' \
-          'security.protocol=SSL' \
-          'ssl.keystore.location=acl-principal.pfx' \
-          'ssl.keystore.password='$$USER_PASSWORD \
-          'ssl.keystore.type=PKCS12' \
-          'ssl.truststore.type=PEM' \
-          'ssl.truststore.location='$$CA_CRT_FILE_NAME > $$USER_OUTPUT_DIR/adminclient-configs.conf
-        echo '================ Done Creating Certs for Admin User ============'
-
-        echo '================ Creating Certs for Demo Producer User ========='
-        USER_CN=demo-producer
-        USER_OUTPUT_DIR=/ContainerData/GeneratedCerts/Kafka/Users/DemoProducer
-        echo 'Cleaning and setting up folder structure for demo producer user certificate'
-        rm -rf $$USER_OUTPUT_DIR
-        mkdir -p $$USER_OUTPUT_DIR
-        cd $$USER_OUTPUT_DIR
-
-        echo 'Setting up password for demo producer user certificate'
-        USER_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
-        echo $$USER_PASSWORD > $$USER_OUTPUT_DIR/password.txt
-
-        echo 'Creating private key for demo producer user certificate'
-        openssl genrsa \
-          -passout file:$$USER_OUTPUT_DIR/password.txt \
-          -out $$USER_OUTPUT_DIR/acl-principal.key $$RSA_BITS
-
-        echo 'Creating certificate signing request config for demo producer user certificate'
-        printf '%s\n' \
-          '[req]' \
-          'default_bits = '$$RSA_BITS \
-          'prompt = no' \
-          'default_md = sha512' \
-          'distinguished_name = req_distinguished_name' \
-          'x509_extensions = v3_req' \
-          '' \
-          '[req_distinguished_name]' \
-          '' \
-          '[v3_req]' \
-          'basicConstraints=CA:FALSE' > $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating certificate signing request for demo producer user certificate'
-        openssl req \
-          -new \
-          -key $$USER_OUTPUT_DIR/acl-principal.key \
-          -subj /CN=$$USER_CN \
-          -out $$USER_OUTPUT_DIR/acl-principal.csr \
-          -config $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating and signing certificate for demo producer user'
-        openssl x509 \
-          -req \
-          -CA $$CA_CRT_PATH \
-          -CAkey $$CA_KEY_PATH \
-          -passin file:$$CA_PASSWORD_PATH \
-          -in $$USER_OUTPUT_DIR/acl-principal.csr \
-          -out $$USER_OUTPUT_DIR/acl-principal.crt \
-          -days $$VALIDITY_DAYS \
-          -CAcreateserial \
-          -extensions v3_req \
-          -extfile $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating pkcs12 certificate bundle for demo producer user'
-        openssl pkcs12 \
-          -inkey $$USER_OUTPUT_DIR/acl-principal.key \
-          -in $$USER_OUTPUT_DIR/acl-principal.crt \
-          -passin pass:$$USER_PASSWORD \
-          -passout pass:$$USER_PASSWORD \
-          -export \
-          -out $$USER_OUTPUT_DIR/acl-principal.pfx
-
-        echo 'Copying CA certificate/public key to demo producer user folder'
-        cp $$CA_CRT_PATH $$USER_OUTPUT_DIR/
-
-        echo 'Creating admin client config file for demo producer user'
-        printf '%s\n' \
-          'security.protocol=SSL' \
-          'ssl.keystore.location=acl-principal.pfx' \
-          'ssl.keystore.password='$$USER_PASSWORD \
-          'ssl.keystore.type=PKCS12' \
-          'ssl.truststore.type=PEM' \
-          'ssl.truststore.location='$$CA_CRT_FILE_NAME > $$USER_OUTPUT_DIR/adminclient-configs.conf
-        echo '================ Done Creating Certs for Demo Producer User ===='
-
-        echo '================ Creating Certs for Demo Consumer User ========='
-        echo 'Cleaning and setting up folder structure for demo consumer user certificate'
-        USER_CN=demo-consumer
-        USER_OUTPUT_DIR=/ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer
-        rm -rf $$USER_OUTPUT_DIR
-        mkdir -p $$USER_OUTPUT_DIR
-        cd $$USER_OUTPUT_DIR
-
-        echo 'Setting up password for demo consumer user certificate'
-        USER_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
-        echo $$USER_PASSWORD > $$USER_OUTPUT_DIR/password.txt
-
-        echo 'Creating private key for demo consumer user certificate'
-        openssl genrsa \
-          -passout file:$$USER_OUTPUT_DIR/password.txt \
-          -out $$USER_OUTPUT_DIR/acl-principal.key $$RSA_BITS
-
-        echo 'Creating certificate signing request config for demo consumer user certificate'
-        printf '%s\n' \
-          '[req]' \
-          'default_bits = '$$RSA_BITS \
-          'prompt = no' \
-          'default_md = sha512' \
-          'distinguished_name = req_distinguished_name' \
-          'x509_extensions = v3_req' \
-          '' \
-          '[req_distinguished_name]' \
-          '' \
-          '[v3_req]' \
-          'basicConstraints=CA:FALSE' > $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating certificate signing request for demo consumer user certificate'
-        openssl req \
-          -new \
-          -key $$USER_OUTPUT_DIR/acl-principal.key \
-          -subj /CN=$$USER_CN \
-          -out $$USER_OUTPUT_DIR/acl-principal.csr \
-          -config $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating and signing certificate for demo consumer user'
-        openssl x509 \
-          -req \
-          -CA $$CA_CRT_PATH \
-          -CAkey $$CA_KEY_PATH \
-          -passin file:$$CA_PASSWORD_PATH \
-          -in $$USER_OUTPUT_DIR/acl-principal.csr \
-          -out $$USER_OUTPUT_DIR/acl-principal.crt \
-          -days $$VALIDITY_DAYS \
-          -CAcreateserial \
-          -extensions v3_req \
-          -extfile $$USER_OUTPUT_DIR/acl-principal.csr.config
-
-        echo 'Creating pkcs12 certificate bundle for demo consumer user'
-        openssl pkcs12 \
-          -inkey $$USER_OUTPUT_DIR/acl-principal.key \
-          -in $$USER_OUTPUT_DIR/acl-principal.crt \
-          -passin pass:$$USER_PASSWORD \
-          -passout pass:$$USER_PASSWORD \
-          -export \
-          -out $$USER_OUTPUT_DIR/acl-principal.pfx
-
-        echo 'Copying CA certificate/public key to demo consumer user folder'
-        cp $$CA_CRT_PATH $$USER_OUTPUT_DIR/
-
-        echo 'Creating admin client config file for demo consumer user'
-        printf '%s\n' \
-          'security.protocol=SSL' \
-          'ssl.keystore.location=acl-principal.pfx' \
-          'ssl.keystore.password='$$USER_PASSWORD \
-          'ssl.keystore.type=PKCS12' \
-          'ssl.truststore.type=PEM' \
-          'ssl.truststore.location='$$CA_CRT_FILE_NAME > $$USER_OUTPUT_DIR/adminclient-configs.conf
-        echo '================ Done Creating Certs for Demo Consumer User ===='
+        CreateUserCerts "kafka-ui"
+        CreateUserCerts "schema-registry"
+        CreateUserCerts "admin"
+        CreateUserCerts "demo-producer"
+        CreateUserCerts "demo-consumer"
 
   broker1:
     image: confluentinc/cp-kafka:7.5.0
@@ -1084,7 +809,7 @@ services:
         restart: false
         condition: service_healthy
     volumes:
-      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/kafka/secrets
+      - ./ContainerData/GeneratedCerts/Kafka/Users/admin:/kafka/secrets
     environment:
       BOOTSTRAP_SERVERS: "broker1:9092"
       _JAVA_OPTIONS: "-Xmx64M -Xms64M"
@@ -1094,66 +819,120 @@ services:
       - |
         cd /kafka/secrets
 
-        echo '================ Creating ACLs for Schema Registry ============='
+        function CreateProduceAcl {
+          while [ $$# -gt 0 ]; do
+            case "$$1" in
+              --topic*|-t*)
+                if [[ "$$1" != *=* ]]; then shift; fi # Value is next arg if no `=`
+                TOPIC="$${1#*=}"
+                ;;
+              --principal*|-p*)
+                if [[ "$$1" != *=* ]]; then shift; fi
+                PRINCIPAL="$${1#*=}"
+                ;;
+              *)
+                >&2 printf "Error: Invalid argument\n"
+                exit 1
+                ;;
+            esac
+            shift
+          done
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" \
+            --command-config 'adminclient-configs.conf' \
+            --add \
+            --allow-principal "User:CN=$$PRINCIPAL" \
+            --allow-host '*' \
+            --producer \
+            --topic "$$TOPIC"
+        }
 
-        # https://docs.confluent.io/platform/current/schema-registry/security/index.html#config-acls-schemas-topic
-        echo 'Creating ACLs for schema registry user'
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=schema-registry' --allow-host '*' \
-                   --producer --consumer --topic '_schemas' --group 'schema-registry'
+        function CreateConsumeAcl {
+          while [ $$# -gt 0 ]; do
+            case "$$1" in
+              --topic*|-t*)
+                if [[ "$$1" != *=* ]]; then shift; fi # Value is next arg if no `=`
+                TOPIC="$${1#*=}"
+                ;;
+              --principal*|-p*)
+                if [[ "$$1" != *=* ]]; then shift; fi
+                PRINCIPAL="$${1#*=}"
+                ;;
+              --group|-g)
+                if [[ "$$1" != *=* ]]; then shift; fi
+                GROUP="$${1#*=}"
+                ;;
+              *)
+                >&2 printf "Error: Invalid argument\n"
+                exit 1
+                ;;
+            esac
+            shift
+          done
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" \
+            --command-config 'adminclient-configs.conf' \
+            --add \
+            --allow-principal "User:CN=$$PRINCIPAL" \
+            --allow-host '*' \
+            --consumer \
+            --topic "$$TOPIC" \
+            --group "$$GROUP"
+        }
 
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=schema-registry' --allow-host '*' \
-                   --operation DescribeConfigs --topic '_schemas'
+        function CreateSchemaRegistryAcls {
+          # Make separate function for this so it can be collapsed
+          echo '================ Creating ACLs for Schema Registry ============='
 
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=schema-registry' --allow-host '*' \
-                   --operation Describe --topic '_schemas'
+          # https://docs.confluent.io/platform/current/schema-registry/security/index.html#config-acls-schemas-topic
+          echo 'Creating ACLs for schema registry user'
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
+                      --allow-principal 'User:CN=schema-registry' --allow-host '*' \
+                      --producer --consumer --topic '_schemas' --group 'schema-registry'
 
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=schema-registry' --allow-host '*' \
-                   --operation Read --topic '_schemas'
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
+                      --allow-principal 'User:CN=schema-registry' --allow-host '*' \
+                      --operation DescribeConfigs --topic '_schemas'
 
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=schema-registry' --allow-host '*' \
-                   --operation Write --topic '_schemas'
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
+                      --allow-principal 'User:CN=schema-registry' --allow-host '*' \
+                      --operation Describe --topic '_schemas'
 
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=schema-registry' --allow-host '*' \
-                   --operation Describe --topic '__consumer_offsets'
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
+                      --allow-principal 'User:CN=schema-registry' --allow-host '*' \
+                      --operation Read --topic '_schemas'
 
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=schema-registry' --allow-host '*' \
-                   --operation Create --cluster kafka-cluster
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
+                      --allow-principal 'User:CN=schema-registry' --allow-host '*' \
+                      --operation Write --topic '_schemas'
 
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=schema-registry' --allow-host '*' \
-                   --producer --consumer --topic '_schemas_acl' --group 'schema-registry'
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
+                      --allow-principal 'User:CN=schema-registry' --allow-host '*' \
+                      --operation Describe --topic '__consumer_offsets'
 
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=schema-registry' --allow-host '*' \
-                   --operation Read --topic '_schemas_acl'
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
+                      --allow-principal 'User:CN=schema-registry' --allow-host '*' \
+                      --operation Create --cluster kafka-cluster
 
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=schema-registry' --allow-host '*' \
-                   --operation Write --topic '_schemas_acl'
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
+                      --allow-principal 'User:CN=schema-registry' --allow-host '*' \
+                      --producer --consumer --topic '_schemas_acl' --group 'schema-registry'
 
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=schema-registry' --allow-host '*' \
-                   --operation DescribeConfigs --topic '_schemas_acl'
-        echo '================ Done Creating ACLs for Schema Registry ========'
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
+                      --allow-principal 'User:CN=schema-registry' --allow-host '*' \
+                      --operation Read --topic '_schemas_acl'
 
-        echo '================ Creating ACLs for Demo Producer User =========='
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=demo-producer' --allow-host '*' \
-                   --producer --topic 'Users'
-        echo '================ Done Creating ACLs for Demo Producer User ====='
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
+                      --allow-principal 'User:CN=schema-registry' --allow-host '*' \
+                      --operation Write --topic '_schemas_acl'
 
-        echo '================ Creating ACLs for Demo Consumer User =========='
-        kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
-                   --allow-principal 'User:CN=demo-consumer' --allow-host '*' \
-                   --consumer --topic 'Users' --group 'cg.demo-consumer.0'
-        echo '================ Done Creating ACLs for Demo Consumer User ====='
+          kafka-acls --bootstrap-server "$$BOOTSTRAP_SERVERS" --command-config 'adminclient-configs.conf' --add \
+                      --allow-principal 'User:CN=schema-registry' --allow-host '*' \
+                      --operation DescribeConfigs --topic '_schemas_acl'
+          echo '================ Done Creating ACLs for Schema Registry ========'
+        }
+        CreateSchemaRegistryAcls
+
+        CreateProduceAcl --topic "Users" --principal "demo-producer"
+        CreateConsumeAcl --topic "Users" --principal "demo-consumer" --group "cg.demo-consumer.0"
 
   create-demo-topics:
     image: confluentinc/cp-kafka:7.5.0
@@ -1176,7 +955,7 @@ services:
         restart: false
         condition: service_healthy
     volumes:
-      - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/kafka/secrets
+      - ./ContainerData/GeneratedCerts/Kafka/Users/admin:/kafka/secrets
     environment:
       BOOTSTRAP_SERVERS: "broker1:9092"
       _JAVA_OPTIONS: "-Xmx64M -Xms64M"
@@ -1189,23 +968,25 @@ services:
         # blocks until kafka is reachable
         kafka-topics --bootstrap-server $$BOOTSTRAP_SERVERS --command-config 'adminclient-configs.conf' --list
 
-        echo '================ Creating Demo Topics ========================='
+        function CreateTopic {
+          kafka-topics \
+            --bootstrap-server $$BOOTSTRAP_SERVERS \
+            --command-config 'adminclient-configs.conf' \
+            --create \
+            --if-not-exists \
+            --topic $$1 \
+            --replication-factor '3' \
+            --partitions '1' \
+            --config 'cleanup.policy=delete' \
+            --config 'max.message.bytes=1000012' \
+            --config 'min.insync.replicas=2' \
+            --config 'retention.bytes=-1' \
+            --config 'retention.ms=-1'
+        }
 
-        kafka-topics \
-          --bootstrap-server $$BOOTSTRAP_SERVERS \
-          --command-config 'adminclient-configs.conf' \
-          --create \
-          --if-not-exists \
-          --topic 'Users' \
-          --replication-factor '3' \
-          --partitions '1' \
-          --config 'cleanup.policy=delete' \
-          --config 'max.message.bytes=1000012' \
-          --config 'min.insync.replicas=2' \
-          --config 'retention.bytes=-1' \
-          --config 'retention.ms=-1'
-
-        echo '================ Done Creating Demo Topics ===================='
+        CreateTopic "Users"
+        CreateTopic "DemoTopic1"
+        CreateTopic "DemoTopic2"
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.5.3
@@ -1245,8 +1026,8 @@ services:
 
       SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_TYPE: "PKCS12"
       SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_LOCATION: "/kafka/secrets/acl-principal.pfx"
-      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_PASSWORD: "Schema_Registry_users_demo_password"
-      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEY_PASSWORD: "Schema_Registry_users_demo_password"
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEYSTORE_PASSWORD: "demo_cert_password"
+      SCHEMA_REGISTRY_KAFKASTORE_SSL_KEY_PASSWORD: "demo_cert_password"
 
       SCHEMA_REGISTRY_LOG4J_ROOT_LOGLEVEL: "info"
     healthcheck:
@@ -1256,7 +1037,7 @@ services:
       timeout: "2s"
       retries: 10
     volumes:
-      - ./ContainerData/GeneratedCerts/Kafka/Users/SchemaRegistry:/kafka/secrets
+      - ./ContainerData/GeneratedCerts/Kafka/Users/schema-registry:/kafka/secrets
 
   create-demo-schemas:
     image: localhost/cert-creator:latest # Re-use same we use for certs
@@ -1364,7 +1145,7 @@ services:
         restart: false
         condition: service_completed_successfully
     volumes:
-      - ./ContainerData/GeneratedCerts/Kafka/Users/DemoProducer:/kafka/secrets
+      - ./ContainerData/GeneratedCerts/Kafka/Users/demo-producer:/kafka/secrets
     environment:
       BOOTSTRAP_SERVERS: "broker1:9092"
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083"
@@ -1486,8 +1267,8 @@ services:
         restart: false
         condition: service_healthy
     volumes:
-      - ./ContainerData/GeneratedCerts/Kafka/Users/DemoConsumer:/kafka/secrets # Or you can use admin credentials by mounting those secrets as show below instead
-      # - ./ContainerData/GeneratedCerts/Kafka/Users/Admin:/kafka/secrets
+      - ./ContainerData/GeneratedCerts/Kafka/Users/demo-consumer:/kafka/secrets # Or you can use admin credentials by mounting those secrets as show below instead
+      # - ./ContainerData/GeneratedCerts/Kafka/Users/admin:/kafka/secrets
     environment:
       BOOTSTRAP_SERVERS: "broker1:9092"
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083"
@@ -1550,7 +1331,7 @@ services:
       KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/ca.crt"
       KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_TYPE: "PKCS12"
       KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_LOCATION: "/kafka/secrets/acl-principal.pfx"
-      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_PASSWORD: "Kafka_UI_users_demo_password"
-      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEY_PASSWORD: "Kafka_UI_users_demo_password"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_PASSWORD: "demo_cert_password"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEY_PASSWORD: "demo_cert_password"
     volumes:
-      - ./ContainerData/GeneratedCerts/Kafka/Users/KafkaUi:/kafka/secrets
+      - ./ContainerData/GeneratedCerts/Kafka/Users/kafka-ui:/kafka/secrets
