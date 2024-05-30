@@ -473,6 +473,9 @@ services:
         CreateUserCerts "admin"
         CreateUserCerts "demo-producer"
         CreateUserCerts "demo-consumer"
+        CreateUserCerts "avro-user"
+        CreateUserCerts "protobuf-user"
+        CreateUserCerts "json-user"
 
   broker1:
     image: confluentinc/cp-kafka:7.5.0
@@ -797,6 +800,15 @@ services:
         CreateProduceAcl --topic "Users" --principal "demo-producer"
         CreateConsumeAcl --topic "Users" --principal "demo-consumer" --group "cg.demo-consumer.0"
 
+        CreateProduceAcl --topic "persons-avro" --principal "avro-user"
+        CreateConsumeAcl --topic "persons-avro" --principal "avro-user" --group "persons-avro-group"
+
+        CreateProduceAcl --topic "persons-protobuf" --principal "protobuf-user"
+        CreateConsumeAcl --topic "persons-protobuf" --principal "protobuf-user" --group "persons-protobuf-group"
+
+        CreateProduceAcl --topic "persons-json" --principal "json-user"
+        CreateConsumeAcl --topic "persons-json" --principal "json-user" --group "persons-json-group"
+
   create-demo-topics:
     image: confluentinc/cp-kafka:7.5.0
     hostname: create-demo-topics
@@ -850,6 +862,9 @@ services:
         CreateTopic "Users"
         CreateTopic "DemoTopic1"
         CreateTopic "DemoTopic2"
+        CreateTopic "persons-avro"
+        CreateTopic "persons-protobuf"
+        CreateTopic "persons-json"
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.5.3
@@ -927,8 +942,6 @@ services:
       - apps_network
     environment:
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083"
-      SCHEMA_NAME_USER_VALUE: "Users-value"
-      SCHEMA_ID_USER_VALUE: "1"
       SCHEMA_DEFINITION_USER_VALUE: |
         {
           "$$schema": "http://json-schema.org/draft-06/schema",
@@ -962,34 +975,165 @@ services:
           },
           "required": [ "id", "name", "contactDetails", "createdAt", "createdBy" ]
         }
+      SCHEMA_DEFINITION_PERSONS_AVRO: |
+        {
+            "namespace": "no.nhn.examples.serialization.avro",
+            "name": "Person",
+            "type": "record",
+            "fields": [
+                {
+                    "name": "Id",
+                    "type": "string"
+                },
+                {
+                    "name": "Name",
+                    "type": {
+                        "name": "PersonName",
+                        "type": "record",
+                        "fields": [
+                            {
+                                "name": "Given",
+                                "type": "string"
+                            },
+                            {
+                                "name": "Family",
+                                "type": "string"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "Tags",
+                    "type":{
+                        "type": "array",
+                        "items": "string",
+                        "default": []
+                    }
+                }
+            ]
+        }
+      SCHEMA_DEFINITION_PERSONS_PROTOBUF: |
+        syntax = "proto3";
+
+        message PersonName{
+            string Given = 1;
+            string Family = 2;
+        }
+
+        message Person {
+            string Id = 1;
+            .PersonName Name = 2;
+            repeated string Tags = 3;
+        }
+      SCHEMA_DEFINITION_PERSONS_JSON: |
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "Person",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "Id": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "Name": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/definitions/PersonName"
+                }
+              ]
+            },
+            "Tags": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "definitions": {
+            "PersonName": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "Given": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "Family": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            }
+          }
+        }
+
     entrypoint:
       - '/bin/bash'
       - '-c'
       - |
-        echo '============== Creating Demo Schema $$SCHEMA_NAME_USER_VALUE =================='
+        function AddSchemaToRegistry {
+          while [ $$# -gt 0 ]; do
+            case "$$1" in
+              --name*|-n*)
+                if [[ "$$1" != *=* ]]; then shift; fi # Value is next arg if no `=`
+                SCHEMA_NAME="$$1"
+                ;;
+              --value*|-v*)
+                if [[ "$$1" != *=* ]]; then shift; fi
+                SCHEMA_VALUE="$$1"
+                ;;
+              --type*|-t*)
+                if [[ "$$1" != *=* ]]; then shift; fi
+                SCHEMA_TYPE="$$1"
+                ;;
+              *)
+                >&2 printf "Error: Invalid argument\n"
+                exit 1
+                ;;
+            esac
+            shift
+          done
 
-        echo "Escaping double quotes in schema $$SCHEMA_NAME_USER_VALUE"
-        # Note double escape of the quotes (\\")
-        schema_escaped=$(echo $$SCHEMA_DEFINITION_USER_VALUE | sed 's/"/\\"/g')
+          echo "============== Creating Demo Schema $$SCHEMA_NAME =================="
+          echo "Escaping double quotes in schema $$SCHEMA_NAME"
+          # Note double escape of the quotes (\\")
+          local schema_escaped=$(echo $$SCHEMA_VALUE | sed 's/"/\\"/g')
 
-        echo "Writing request body containing escaped schema to file"
-        echo '{'                                    >  schema.json
-        echo "  \"schema\": \"$$schema_escaped\","  >> schema.json
-        echo '  "schemaType":"JSON"'                >> schema.json
-        echo '}'                                    >> schema.json
-        # Valid schema types at the moment are ["JSON","PROTOBUF","AVRO"] (curl --silent -X GET http://schema-registry:8083/schemas/types)
-        # Generally don't set id and version, they will be generated for you, but because everything is console here and we need consistent ID's set it explicitly.
+          echo "Writing request body containing escaped schema to file"
+          echo '{'                                    >  schema.json
+          echo "  \"schema\": \"$$schema_escaped\","  >> schema.json
+          echo "  \"schemaType\":\"$$SCHEMA_TYPE\""   >> schema.json
+          echo '}'                                    >> schema.json
+          # Valid schema types at the moment are ["JSON","PROTOBUF","AVRO"] (curl --silent -X GET http://schema-registry:8083/schemas/types)
 
-        echo "removing newlines in data to post"
-        sed -i 's/\n//g' schema.json
+          echo "removing newlines in data to post"
+          sed -i 's/\n//g' schema.json
 
-        echo "Posting schema to registry"
-        curl -X POST -H "Content-Type: application/json" \
-          --data @schema.json \
-          $$KAFKA_CLUSTERS_0_SCHEMAREGISTRY/subjects/$$SCHEMA_NAME_USER_VALUE/versions
+          echo "Posting schema to registry"
+          curl -X POST -H "Content-Type: application/json" \
+            --data @schema.json \
+            $$KAFKA_CLUSTERS_0_SCHEMAREGISTRY/subjects/$$SCHEMA_NAME/versions
+          echo "" # Add newline to make log prettier
+          echo "============== Done Creating Demo Schema $$SCHEMA_NAME ============="
+        }
 
-        echo "" # Add newline to make log prettier
-        echo '============== Done Creating Demo Schema $$SCHEMA_NAME_USER_VALUE ============='
+        AddSchemaToRegistry --name "Users-value" --value "$$SCHEMA_DEFINITION_USER_VALUE" --type "JSON"
+        AddSchemaToRegistry --name "persons-avro-value" --value "$$SCHEMA_DEFINITION_PERSONS_AVRO" --type "AVRO"
+        AddSchemaToRegistry --name "persons-protobuf-value" --value "$$SCHEMA_DEFINITION_PERSONS_PROTOBUF" --type "PROTOBUF"
+        AddSchemaToRegistry --name "persons-json-value" --value "$$SCHEMA_DEFINITION_PERSONS_JSON" --type "JSON"
 
   produce-demo-events:
     image: confluentinc/cp-schema-registry:7.5.3
@@ -1143,7 +1287,7 @@ services:
         cd /kafka/secrets
 
         echo -e 'Setting up consumer of messages on topic so you can debug what happens when someone is live and consuming'
-        # The `--group` parameter is not optional when running with ACLs, unless you set up a rule so that anyone can use any consumer groups. If you do, if no group is specified, then a random consumer group is created. I would strongly recomend agains that if you have several applications or sets of users needing to co-exist. Also, even for demo uses, having an explicit consumer group makes things easier to follow. To see the effect of the demo consumer, run `docker compose logs start-demo-consumer --follow` in a shell, go to kafka UI in your browser, submit a new event to the topic in kafka UI, and see it come out in the shell.
+        # The `--group` parameter is not optional when running with ACLs, unless you set up a rule so that anyone can use any consumer groups. If you do, if no group is specified, then a random consumer group is created. I would strongly recomend against that if you have several applications or sets of users needing to co-exist. Also, even for demo uses, having an explicit consumer group makes things easier to follow. To see the effect of the demo consumer, run `docker compose logs start-demo-consumer --follow` in a shell, go to kafka UI in your browser, submit a new event to the topic in kafka UI, and see it come out in the shell.
 
         /usr/bin/kafka-json-schema-console-consumer \
           --consumer.config 'adminclient-configs.conf' \

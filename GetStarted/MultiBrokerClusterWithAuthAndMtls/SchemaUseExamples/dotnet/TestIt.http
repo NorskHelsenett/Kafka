@@ -1,0 +1,35 @@
+@baseurl=http://localhost:8080
+
+# Returns hello world, check that we're up
+GET {{baseurl}} HTTP/1.1
+
+###
+
+# Add data that gets published on kafka
+POST {{baseurl}}/storePerson
+Content-Type: application/json
+
+{
+    "Id": "{{$guid}}",
+    "Name": {
+        "Given": "*",
+        "Family": "+"
+    },
+    "Tags": [
+        "Anything goes here?",
+        "{{$datetime iso8601}}",
+        "a number {{$randomInt 0 10}}"
+    ]
+}
+
+###
+
+# Retrieve event read from kafka
+POST {{baseurl}}/retrievePerson/latest
+Content-Type: application/json
+
+{
+    "Id": "we could maybe match on this, but no need for this example"
+}
+
+###
