@@ -88,7 +88,7 @@ public class KafkaProducer
         {
             BootstrapServers = bootstrapServers,
             // MessageSendMaxRetries = 10,
-            Acks = Acks.Leader,
+            Acks = Acks.All,
             SecurityProtocol = SecurityProtocol.Ssl,
             SslCaPem = File.ReadAllText(sslCaPemLocation),
             SslCertificatePem = File.ReadAllText(sslCertLocation),
