@@ -281,6 +281,7 @@ services:
           echo "Creating private key for $$BROKER_DNS_1 certificate"
           openssl genrsa \
             -passout file:/ContainerData/GeneratedCerts/Kafka/Brokers/$$BROKER_DNS_1/password.txt \
+            -aes256 \
             -out /ContainerData/GeneratedCerts/Kafka/Brokers/$$BROKER_DNS_1/acl-principal.key $$RSA_BITS
 
           echo "Creating certificate signing request config for $$BROKER_DNS_1 certificate"
@@ -313,6 +314,7 @@ services:
           openssl req \
             -new \
             -key /ContainerData/GeneratedCerts/Kafka/Brokers/$$BROKER_DNS_1/acl-principal.key \
+            -passin pass:$$BROKER_DEMO_PASSWORD \
             -subj '/CN='$$BROKERS_CN \
             -out /ContainerData/GeneratedCerts/Kafka/Brokers/$$BROKER_DNS_1/acl-principal.csr \
             -config /ContainerData/GeneratedCerts/Kafka/Brokers/$$BROKER_DNS_1/acl-principal.csr.config
@@ -407,6 +409,7 @@ services:
           echo "Creating private key for $$USER_CN certificate"
           openssl genrsa \
             -passout file:$$USER_OUTPUT_DIR/password.txt \
+            -aes256 \
             -out $$USER_OUTPUT_DIR/acl-principal.key $$RSA_BITS
 
           echo "Creating certificate signing request config for $$USER_CN certificate"
@@ -427,6 +430,7 @@ services:
           openssl req \
             -new \
             -key $$USER_OUTPUT_DIR/acl-principal.key \
+            -passin pass:$$USER_PASSWORD \
             -subj /CN=$$USER_CN \
             -out $$USER_OUTPUT_DIR/acl-principal.csr \
             -config $$USER_OUTPUT_DIR/acl-principal.csr.config
