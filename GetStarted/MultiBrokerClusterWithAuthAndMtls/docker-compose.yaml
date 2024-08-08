@@ -592,7 +592,7 @@ services:
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     healthcheck:
-      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && _JAVA_OPTIONS="-Xmx32M -Xms32M" /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server broker1:9092 --config ./bootstrap.conf || exit 1']
+      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && _JAVA_OPTIONS="-Xmx32M -Xms32M" /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server broker2:9092 --config ./bootstrap.conf || exit 1']
       start_period: "7s"
       interval: "5s"
       timeout: "10s"
@@ -651,7 +651,7 @@ services:
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     healthcheck:
-      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && _JAVA_OPTIONS="-Xmx32M -Xms32M" /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server broker1:9092 --config ./bootstrap.conf || exit 1']
+      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && _JAVA_OPTIONS="-Xmx32M -Xms32M" /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server broker3:9092 --config ./bootstrap.conf || exit 1']
       start_period: "7s"
       interval: "5s"
       timeout: "10s"
