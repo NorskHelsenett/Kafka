@@ -113,7 +113,7 @@ public class KafkaConsumer : BackgroundService
         var schemaRegistryUrl = Environment.GetEnvironmentVariable("KAFKA_SCHEMA_REGISTRY_ADDRESS");
         if(string.IsNullOrEmpty(schemaRegistryUrl))
         {
-            schemaRegistryUrl = "http://localhost:8083";
+            schemaRegistryUrl = "http://localhost:8083/apis/ccompat/v7";
         }
         var schemaRegistryConfig = new SchemaRegistryConfig
         {

@@ -20,7 +20,7 @@ services:
       - ./ContainerData/GeneratedCerts/Kafka/Users/admin:/secrets/kafka
     environment:
       BOOTSTRAP_SERVERS: "broker1:9092"
-      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083"
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083/apis/ccompat/v7"
       _JAVA_OPTIONS: "-Xmx64M -Xms64M"
     entrypoint:
       - '/bin/bash'
@@ -51,7 +51,7 @@ services:
       - ./ContainerData:/ContainerData
     environment:
       BOOTSTRAP_SERVERS: "broker1:9092"
-      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083"
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8083/apis/ccompat/v7"
 
       # Allow dotnet build to properly run even if is not as root user
       DISABLE_AUTH: 'true'
