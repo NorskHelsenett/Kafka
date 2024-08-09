@@ -1372,8 +1372,7 @@ services:
           consumer.close()
 
   kafka-ui:
-    image: provectuslabs/kafka-ui
-    # image: provectuslabs/kafka-ui:53a6553765a806eda9905c43bfcfe09da6812035
+    image: ghcr.io/kafbat/kafka-ui
     hostname: kafka-ui
     container_name: kafka-ui
     user: 1000:1001
@@ -1405,7 +1404,6 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "broker1:9092,broker2:9092,broker3:9092"
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8080/apis/ccompat/v7"
       KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: "SSL"
-
       KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_TYPE: "PEM"
       KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/ca.crt"
       KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_TYPE: "PKCS12"
