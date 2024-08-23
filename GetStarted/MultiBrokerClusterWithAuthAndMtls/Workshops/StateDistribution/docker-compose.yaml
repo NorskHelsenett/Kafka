@@ -9,6 +9,9 @@ services:
     container_name: state-distributor
     build:
       context: ./FullyWorkingExample
+      # context: ./Exercise1-ReceiveAndProduce
+      # context: ./Exercise2-ConsumeAndMakeAvailable
+      # context: ./Exercise3-ResumeWhenRestarted
       dockerfile: Dockerfile
     user: 1000:1001
     networks:

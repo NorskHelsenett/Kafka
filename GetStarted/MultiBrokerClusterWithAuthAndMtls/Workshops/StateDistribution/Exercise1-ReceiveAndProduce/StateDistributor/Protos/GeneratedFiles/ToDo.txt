@@ -1,0 +1,2 @@
+Generate protobuf c# object(s) by running the protobuf compiler (found at https://protobuf.dev/downloads , alternatively `brew install protobuf`).
+The command should look something like `protoc --proto_path=. --csharp_out=./GeneratedFiles example.proto`.
