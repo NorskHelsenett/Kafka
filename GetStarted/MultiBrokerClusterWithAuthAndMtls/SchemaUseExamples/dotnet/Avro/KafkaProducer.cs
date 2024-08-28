@@ -80,10 +80,10 @@ public class KafkaProducer
         {
             sslKeyLocation = "../../../ContainerData/GeneratedCerts/Kafka/Users/avro-user/acl-principal.key";
         }
-        var sslKeyPasswordtLocation = Environment.GetEnvironmentVariable("KAFKA_SSL_KEY_PASSWORD_LOCATION");
-        if(string.IsNullOrEmpty(sslKeyPasswordtLocation))
+        var sslKeyPasswordLocation = Environment.GetEnvironmentVariable("KAFKA_SSL_KEY_PASSWORD_LOCATION");
+        if(string.IsNullOrEmpty(sslKeyPasswordLocation))
         {
-            sslKeyPasswordtLocation = "../../../ContainerData/GeneratedCerts/Kafka/Users/avro-user/password.txt";
+            sslKeyPasswordLocation = "../../../ContainerData/GeneratedCerts/Kafka/Users/avro-user/password.txt";
         }
         var producerConfig = new ProducerConfig
         {
@@ -94,7 +94,7 @@ public class KafkaProducer
             SslCaPem = File.ReadAllText(sslCaPemLocation),
             SslCertificatePem = File.ReadAllText(sslCertLocation),
             SslKeyPem = File.ReadAllText(sslKeyLocation),
-            SslKeyPassword = File.ReadAllText(sslKeyPasswordtLocation),
+            SslKeyPassword = File.ReadAllLines(sslKeyPasswordLocation).First(),
         };
 
         var schemaRegistryUrl = Environment.GetEnvironmentVariable("KAFKA_SCHEMA_REGISTRY_ADDRESS");

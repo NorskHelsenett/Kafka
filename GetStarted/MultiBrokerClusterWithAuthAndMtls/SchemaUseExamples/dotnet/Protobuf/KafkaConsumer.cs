@@ -85,10 +85,10 @@ public class KafkaConsumer : BackgroundService
         {
             sslKeyLocation = "../../../ContainerData/GeneratedCerts/Kafka/Users/protobuf-user/acl-principal.key";
         }
-        var sslKeyPasswordtLocation = Environment.GetEnvironmentVariable("KAFKA_SSL_KEY_PASSWORD_LOCATION");
-        if(string.IsNullOrEmpty(sslKeyPasswordtLocation))
+        var sslKeyPasswordLocation = Environment.GetEnvironmentVariable("KAFKA_SSL_KEY_PASSWORD_LOCATION");
+        if(string.IsNullOrEmpty(sslKeyPasswordLocation))
         {
-            sslKeyPasswordtLocation = "../../../ContainerData/GeneratedCerts/Kafka/Users/protobuf-user/password.txt";
+            sslKeyPasswordLocation = "../../../ContainerData/GeneratedCerts/Kafka/Users/protobuf-user/password.txt";
         }
         var consumerGroup = Environment.GetEnvironmentVariable("KAFKA_GROUP_ID");
         if(string.IsNullOrEmpty(consumerGroup))
@@ -107,7 +107,7 @@ public class KafkaConsumer : BackgroundService
             SslCaPem = File.ReadAllText(sslCaPemLocation),
             SslCertificatePem = File.ReadAllText(sslCertLocation),
             SslKeyPem = File.ReadAllText(sslKeyLocation),
-            SslKeyPassword = File.ReadAllText(sslKeyPasswordtLocation),
+            SslKeyPassword = File.ReadAllLines(sslKeyPasswordLocation).First(),
         };
 
         var schemaRegistryUrl = Environment.GetEnvironmentVariable("KAFKA_SCHEMA_REGISTRY_ADDRESS");
