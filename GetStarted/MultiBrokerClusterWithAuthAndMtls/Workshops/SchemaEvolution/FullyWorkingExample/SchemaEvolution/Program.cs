@@ -26,7 +26,7 @@ await WaffleMaker1_1.ProduceWaffles(topicName);
 var topicV2Name = "workshop-schema-evolution-topic-v2";
 
 Console.WriteLine("Creating second topic");
-var createResultSecondTopic = await KafkaTopicCreation.TryCreateTopic(topicV2Name);
+await KafkaTopicCreation.TryCreateTopic(topicV2Name);
 Console.WriteLine($"Created v2 topic {topicV2Name}");
 
 Console.WriteLine("Registering third schema");
