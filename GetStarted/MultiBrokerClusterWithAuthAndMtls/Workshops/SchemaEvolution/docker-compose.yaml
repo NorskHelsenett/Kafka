@@ -1,0 +1,36 @@
+networks:
+  apps_network:
+    name: apps_network
+    external: true
+
+services:
+  schema-evolution:
+    image: localhost/schema-evolution
+    container_name: schema-evolution
+    build:
+      context: ./FullyWorkingExample
+      dockerfile: Dockerfile
+    user: 1000:1001
+    networks:
+      - apps_network
+    volumes:
+      - ../../ContainerData/GeneratedCerts/Kafka/Users/admin:/kafka/secrets
+      - ../../ContainerData:/ContainerData
+    environment:
+      # LOGGING__LOGLEVEL__DEFAULT: "Information"
+      LOGGING__LOGLEVEL__DEFAULT: "Trace"
+      LOGGING__LOGLEVEL__MICROSOFT: "Warning"
+      LOGGING__LOGLEVEL__MICROSOFT.ASPNETCORE.DATAPROTECTION: "Error"
+
+      # kafkal config
+      KAFKA_BOOTSTRAP_SERVERS: "broker1:9092,broker2:9092,broker3:9092"
+      KAFKA_SECURITY_PROTOCOL: "ssl"
+      KAFKA_SSL_CA_PEM_LOCATION: "/kafka/secrets/ca.crt"
+      KAFKA_SSL_CERTIFICATE_LOCATION: "/kafka/secrets/acl-principal.crt"
+      KAFKA_SSL_KEY_LOCATION: "/kafka/secrets/acl-principal.key"
+      KAFKA_SSL_KEY_PASSWORD_LOCATION: "/kafka/secrets/password.txt"
+      KAFKA_ACKS: "all"
+      KAFKA_GROUP_ID: "state-distributor"
+      KAFKA_ENABLE_AUTO_OFFSET_STORE: "true"
+      KAFKA_AUTO_OFFSET_RESET: "Earliest"
+      KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8080/apis/ccompat/v7"

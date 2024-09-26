@@ -1,0 +1,20 @@
+syntax = "proto3";
+option csharp_namespace = "Namespace.Waffle";
+
+enum Kind {
+    NORMAL = 0;
+    BELGIAN = 1;
+}
+
+enum Condiments {
+    BUTTER = 0;
+    SUGAR = 1;
+    JAM = 2;
+    SOUR_CREAM = 3;
+}
+
+message Waffle {
+    string Id = 1;
+    Kind Kind = 2;
+    repeated Condiments Condiments = 3;
+}
