@@ -30,7 +30,7 @@ services:
       KAFKA_SSL_KEY_LOCATION: "/kafka/secrets/acl-principal.key"
       KAFKA_SSL_KEY_PASSWORD_LOCATION: "/kafka/secrets/password.txt"
       KAFKA_ACKS: "all"
-      KAFKA_GROUP_ID: "state-distributor"
+      KAFKA_GROUP_ID: "schema-evolution"
       KAFKA_ENABLE_AUTO_OFFSET_STORE: "true"
       KAFKA_AUTO_OFFSET_RESET: "Earliest"
       KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8080/apis/ccompat/v7"
