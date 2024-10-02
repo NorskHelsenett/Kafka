@@ -11,6 +11,7 @@ public class ChunkedStreamConsumer: BackgroundService
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
     private readonly string _topicChunks;
     private readonly string _topicMetadata;
+    private readonly IConsumer<string, BlobChunk> _chunkConsumer;
 
     public ChunkedStreamConsumer(ILogger<ChunkedStreamConsumer> logger, IHostApplicationLifetime hostApplicationLifetime)
     {
@@ -34,6 +35,9 @@ public class ChunkedStreamConsumer: BackgroundService
         _topicMetadata = topicNameMetadataTopic;
 
         _logger.LogDebug($"{nameof(ChunkedStreamConsumer)} initialized");
+
+        _chunkConsumer = GetChunkConsumer();
+        _chunkConsumer.Subscribe(_topicChunks);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -97,27 +101,26 @@ public class ChunkedStreamConsumer: BackgroundService
         _logger.LogDebug($"Setting up consumer to consume from earliest offsets specified in metadata");
         var chunkTopicPartitionOffsetsEarliest = metadata.ChunksTopicPartitionOffsets
             .GroupBy(tpo => (tpo.Topic, tpo.Partition))
-            .ToDictionary(tpGroupedOffsets=> tpGroupedOffsets.Key.Partition, offsets => offsets.Min(o => o.Offset));
-        _logger.LogDebug($"Earlies offsets: {System.Text.Json.JsonSerializer.Serialize(chunkTopicPartitionOffsetsEarliest)}");
-        var kafkaConfig = KafkaConfigBinder.GetConsumerConfig();
-        kafkaConfig.GroupId = $"{kafkaConfig.GroupId}-random";
-        var chunkConsumer = new ConsumerBuilder<string, BlobChunk>(kafkaConfig)
-            .SetPartitionsAssignedHandler((c, partitions) =>
-            {
-                return chunkTopicPartitionOffsetsEarliest.Select(partitionToOffsetMap => new TopicPartitionOffset(_topicChunks, new Partition(partitionToOffsetMap.Key), new Offset(partitionToOffsetMap.Value)));;
-            })
-            .SetValueDeserializer(new ProtobufDeserializer<BlobChunk>().AsSyncOverAsync())
-            .Build();
+            .ToDictionary(tpGroupedOffsets=> tpGroupedOffsets.Key.Partition, offsets => offsets.Min(o => o.Offset))
+            .Select(partitionToOffsetMap => new TopicPartitionOffset(_topicChunks, new Partition(partitionToOffsetMap.Key), new Offset(partitionToOffsetMap.Value)))
+            .ToArray();
+        _logger.LogDebug($"Earliest offsets: {System.Text.Json.JsonSerializer.Serialize(chunkTopicPartitionOffsetsEarliest)}");
+
+        _chunkConsumer.Commit(chunkTopicPartitionOffsetsEarliest);
+        _chunkConsumer.Unassign();
+        _chunkConsumer.Assign(chunkTopicPartitionOffsetsEarliest);
+        // foreach (var tpo in chunkTopicPartitionOffsetsEarliest)
+        // {
+        //     _chunkConsumer.Seek(tpo);
+        // }
 
         var consumedChunks = new Dictionary<ulong, BlobChunk>();
-        _logger.LogDebug($"Subscribing to topic {_topicChunks}");
-        chunkConsumer.Subscribe(_topicChunks);
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
                 _logger.LogDebug($"Waiting for messages to consume on chunks topic");
-                var result = chunkConsumer.Consume(cancellationToken);
+                var result = _chunkConsumer.Consume(cancellationToken);
 
                 if (result?.Message == null)
                 {
@@ -126,7 +129,7 @@ public class ChunkedStreamConsumer: BackgroundService
                 }
                 else
                 {
-                    _logger.LogDebug($"Retrieved chunk {result.Message.Key}");
+                    _logger.LogDebug($"Retrieved chunk {result.Message.Key} at topic {result.Topic} partition {result.Partition.Value} offset {result.Offset.Value}");
                     var nextChunk = result.Message.Value;
                     if (nextChunk != null)
                     {
@@ -140,7 +143,7 @@ public class ChunkedStreamConsumer: BackgroundService
                                 _logger.LogError($"Chunk checksum mismatch in chunk {nextChunk.ChunkId}. Expected embedded: {nextChunk.ChunkChecksum}, computed: {chunkChecksum}");
                                 throw new Exception("Chunk checksum mismatch");
                             }
-                            consumedChunks.Add(nextChunk.ChunkNumber,nextChunk);
+                            consumedChunks[nextChunk.ChunkNumber] = nextChunk;
                             if ((ulong) consumedChunks.Count == metadata.TotalNumberOfChunks)
                             {
                                 _logger.LogDebug($"All chunks of blob {metadata.BlobId} consumed, stopping consuming and proceeding to reassemble");
@@ -158,11 +161,8 @@ public class ChunkedStreamConsumer: BackgroundService
         catch (Exception e)
         {
             _logger.LogError(e, "Kafka chunk consumer received exception while consuming, exiting");
-        }
-        finally
-        {
-            _logger.LogDebug("Chunk consumer shutting down and disconnecting from the cluster");
-            chunkConsumer.Close();
+            // _hostApplicationLifetime.StopApplication();
+            throw;
         }
 
         var reassembled = ReassembleBlobFromChunks(consumedChunks.Values);
@@ -210,9 +210,26 @@ public class ChunkedStreamConsumer: BackgroundService
             .Build();
     }
 
+    private IConsumer<string, BlobChunk> GetChunkConsumer()
+    {
+        var kafkaConfig = KafkaConfigBinder.GetConsumerConfig();
+        kafkaConfig.GroupId = $"{kafkaConfig.GroupId}-chunks";
+        // var chunkConsumer = new ConsumerBuilder<string, BlobChunk>(kafkaConfig)
+        return  new ConsumerBuilder<string, BlobChunk>(kafkaConfig)
+            // .SetPartitionsAssignedHandler((c, partitions) =>
+            // {
+            //     // Always start at the beginning, only use cg for tracking liveliness and lag from the outside
+            //     return partitions.Select(tp => new TopicPartitionOffset(tp, Offset.End));
+            // })
+            .SetValueDeserializer(new ProtobufDeserializer<BlobChunk>().AsSyncOverAsync())
+            .SetErrorHandler((_, e) => _logger.LogError($"Error: {e.Reason}"))
+            .Build();
+    }
+
     public override async Task StopAsync(CancellationToken stoppingToken)
     {
         _logger.LogDebug("Kafka consumer received request for graceful shutdown.");
+        _chunkConsumer.Close();
 
         await base.StopAsync(stoppingToken);
     }
