@@ -109,10 +109,6 @@ public class ChunkedStreamConsumer: BackgroundService
         _chunkConsumer.Commit(chunkTopicPartitionOffsetsEarliest);
         _chunkConsumer.Unassign();
         _chunkConsumer.Assign(chunkTopicPartitionOffsetsEarliest);
-        // foreach (var tpo in chunkTopicPartitionOffsetsEarliest)
-        // {
-        //     _chunkConsumer.Seek(tpo);
-        // }
 
         var consumedChunks = new Dictionary<ulong, BlobChunk>();
         try
@@ -129,7 +125,7 @@ public class ChunkedStreamConsumer: BackgroundService
                 }
                 else
                 {
-                    _logger.LogDebug($"Retrieved chunk {result.Message.Key} at topic {result.Topic} partition {result.Partition.Value} offset {result.Offset.Value}");
+                    _logger.LogDebug($"Consumed chunk {result.Message.Key} at topic {result.Topic} partition {result.Partition.Value} offset {result.Offset.Value}");
                     var nextChunk = result.Message.Value;
                     if (nextChunk != null)
                     {
@@ -216,11 +212,6 @@ public class ChunkedStreamConsumer: BackgroundService
         kafkaConfig.GroupId = $"{kafkaConfig.GroupId}-chunks";
         // var chunkConsumer = new ConsumerBuilder<string, BlobChunk>(kafkaConfig)
         return  new ConsumerBuilder<string, BlobChunk>(kafkaConfig)
-            // .SetPartitionsAssignedHandler((c, partitions) =>
-            // {
-            //     // Always start at the beginning, only use cg for tracking liveliness and lag from the outside
-            //     return partitions.Select(tp => new TopicPartitionOffset(tp, Offset.End));
-            // })
             .SetValueDeserializer(new ProtobufDeserializer<BlobChunk>().AsSyncOverAsync())
             .SetErrorHandler((_, e) => _logger.LogError($"Error: {e.Reason}"))
             .Build();
