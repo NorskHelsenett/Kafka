@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option csharp_namespace = "KafkaBlobChunking";
+
+message BlobChunk {
+    string ChunkId = 1;
+    string CompleteBlobId = 2;
+    string CompleteBlobChecksum = 3;
+    uint64 ChunkNumber = 4;
+    string ChunkChecksum = 5;
+    uint64 ChunkNumberOfByes = 6;
+    bytes ChunkPayload = 7;
+    uint64 TotalNumberOfChunks = 8;
+    uint64 CompleteBlobTotalNumberOfBytes = 9;
+    string CompleteBlobSchemaSubject = 10;
+    string CompleteBlobSchemaVersion = 11;
+}

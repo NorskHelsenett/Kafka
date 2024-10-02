@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option csharp_namespace = "KafkaBlobChunking";
+
+message KafkaTopicPartitionOffset {
+    string Topic = 1;
+    int32 Partition = 2;
+    int64 Offset = 3;
+}
+
+message BlobChunksMetadata {
+    string BlobId = 1;
+    repeated string ChunkTopicKeys = 2;
+    repeated .KafkaTopicPartitionOffset ChunksTopicPartitionOffsets = 3;
+    uint64 TotalNumberOfChunks = 4;
+    uint64 CompleteBlobTotalNumberOfBytes = 5;
+    string FinalChecksum = 6;
+    string BlobSchemaSubject = 7;
+    string BlobSchemaVersion = 8;
+}

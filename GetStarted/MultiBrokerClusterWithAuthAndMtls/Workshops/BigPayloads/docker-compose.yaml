@@ -1,0 +1,45 @@
+networks:
+  apps_network:
+    name: apps_network
+    external: true
+
+services:
+  big-payloads:
+    image: localhost/big-payloads
+    container_name: big-payloads
+    build:
+      context: ./FullyWorkingExample
+      dockerfile: Dockerfile
+    user: 1000:1001
+    networks:
+      - apps_network
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../../ContainerData/GeneratedCerts/Kafka/Users/admin:/kafka/secrets
+      - ../../ContainerData:/ContainerData
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+
+      # LOGGING__LOGLEVEL__DEFAULT: "Information"
+      LOGGING__LOGLEVEL__DEFAULT: "Trace"
+      LOGGING__LOGLEVEL__MICROSOFT: "Warning"
+      LOGGING__LOGLEVEL__MICROSOFT.ASPNETCORE.DATAPROTECTION: "Error"
+
+      # App config
+      BIG_PAYLOADS_CHUNKS_TOPIC: "workshop-big-payloads-chunks"
+      BIG_PAYLOADS_METADATA_TOPIC: "workshop-big-payloads-metadata"
+
+      # kafkal config
+      KAFKA_BOOTSTRAP_SERVERS: "broker1:9092,broker2:9092,broker3:9092"
+      KAFKA_SECURITY_PROTOCOL: "ssl"
+      KAFKA_SSL_CA_PEM_LOCATION: "/kafka/secrets/ca.crt"
+      KAFKA_SSL_CERTIFICATE_LOCATION: "/kafka/secrets/acl-principal.crt"
+      KAFKA_SSL_KEY_LOCATION: "/kafka/secrets/acl-principal.key"
+      KAFKA_SSL_KEY_PASSWORD_LOCATION: "/kafka/secrets/password.txt"
+      KAFKA_ACKS: "all"
+      KAFKA_GROUP_ID: "big-payloads"
+      KAFKA_ENABLE_AUTO_OFFSET_STORE: "true"
+      KAFKA_AUTO_OFFSET_RESET: "Earliest"
+      KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8080/apis/ccompat/v7"
