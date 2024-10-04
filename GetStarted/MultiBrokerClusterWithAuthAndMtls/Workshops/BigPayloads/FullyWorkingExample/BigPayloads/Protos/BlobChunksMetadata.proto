@@ -8,13 +8,20 @@ message KafkaTopicPartitionOffset {
     int64 Offset = 3;
 }
 
+message KafkaNumberOfChunksPerTopicPartition {
+    string Topic = 1;
+    int32 Partition = 2;
+    uint64 NumberOfChunks = 3;
+}
+
 message BlobChunksMetadata {
     string BlobId = 1;
-    repeated string ChunkTopicKeys = 2;
-    repeated .KafkaTopicPartitionOffset ChunksTopicPartitionOffsets = 3;
-    uint64 TotalNumberOfChunks = 4;
-    uint64 CompleteBlobTotalNumberOfBytes = 5;
-    string FinalChecksum = 6;
-    string BlobSchemaSubject = 7;
-    string BlobSchemaVersion = 8;
+    repeated .KafkaTopicPartitionOffset ChunksTopicPartitionOffsetsEarliest = 2;
+    repeated .KafkaTopicPartitionOffset ChunksTopicPartitionOffsetsLatest = 3;
+    repeated .KafkaNumberOfChunksPerTopicPartition ChunksPerTopicPartitionCount = 4;
+    uint64 TotalNumberOfChunks = 5;
+    uint64 CompleteBlobTotalNumberOfBytes = 6;
+    string FinalChecksum = 7;
+    string BlobSchemaSubject = 8;
+    string BlobSchemaVersion = 9;
 }

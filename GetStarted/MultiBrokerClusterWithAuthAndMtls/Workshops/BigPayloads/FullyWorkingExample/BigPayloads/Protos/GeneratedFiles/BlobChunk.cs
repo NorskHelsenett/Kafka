@@ -24,19 +24,16 @@ namespace KafkaBlobChunking {
     static BlobChunkReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "Cg9CbG9iQ2h1bmsucHJvdG8iugIKCUJsb2JDaHVuaxIPCgdDaHVua0lkGAEg",
-            "ASgJEhYKDkNvbXBsZXRlQmxvYklkGAIgASgJEhwKFENvbXBsZXRlQmxvYkNo",
-            "ZWNrc3VtGAMgASgJEhMKC0NodW5rTnVtYmVyGAQgASgEEhUKDUNodW5rQ2hl",
-            "Y2tzdW0YBSABKAkSGQoRQ2h1bmtOdW1iZXJPZkJ5ZXMYBiABKAQSFAoMQ2h1",
-            "bmtQYXlsb2FkGAcgASgMEhsKE1RvdGFsTnVtYmVyT2ZDaHVua3MYCCABKAQS",
-            "JgoeQ29tcGxldGVCbG9iVG90YWxOdW1iZXJPZkJ5dGVzGAkgASgEEiEKGUNv",
-            "bXBsZXRlQmxvYlNjaGVtYVN1YmplY3QYCiABKAkSIQoZQ29tcGxldGVCbG9i",
-            "U2NoZW1hVmVyc2lvbhgLIAEoCUIUqgIRS2Fma2FCbG9iQ2h1bmtpbmdiBnBy",
-            "b3RvMw=="));
+            "Cg9CbG9iQ2h1bmsucHJvdG8i1wEKCUJsb2JDaHVuaxIPCgdDaHVua0lkGAEg",
+            "ASgJEhYKDkNvbXBsZXRlQmxvYklkGAIgASgJEhMKC0NodW5rTnVtYmVyGAMg",
+            "ASgEEhUKDUNodW5rQ2hlY2tzdW0YBCABKAkSGQoRQ2h1bmtOdW1iZXJPZkJ5",
+            "ZXMYBSABKAQSFAoMQ2h1bmtQYXlsb2FkGAYgASgMEiEKGUNvbXBsZXRlQmxv",
+            "YlNjaGVtYVN1YmplY3QYByABKAkSIQoZQ29tcGxldGVCbG9iU2NoZW1hVmVy",
+            "c2lvbhgIIAEoCUIUqgIRS2Fma2FCbG9iQ2h1bmtpbmdiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::KafkaBlobChunking.BlobChunk), global::KafkaBlobChunking.BlobChunk.Parser, new[]{ "ChunkId", "CompleteBlobId", "CompleteBlobChecksum", "ChunkNumber", "ChunkChecksum", "ChunkNumberOfByes", "ChunkPayload", "TotalNumberOfChunks", "CompleteBlobTotalNumberOfBytes", "CompleteBlobSchemaSubject", "CompleteBlobSchemaVersion" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::KafkaBlobChunking.BlobChunk), global::KafkaBlobChunking.BlobChunk.Parser, new[]{ "ChunkId", "CompleteBlobId", "ChunkNumber", "ChunkChecksum", "ChunkNumberOfByes", "ChunkPayload", "CompleteBlobSchemaSubject", "CompleteBlobSchemaVersion" }, null, null, null, null)
           }));
     }
     #endregion
@@ -80,13 +77,10 @@ namespace KafkaBlobChunking {
     public BlobChunk(BlobChunk other) : this() {
       chunkId_ = other.chunkId_;
       completeBlobId_ = other.completeBlobId_;
-      completeBlobChecksum_ = other.completeBlobChecksum_;
       chunkNumber_ = other.chunkNumber_;
       chunkChecksum_ = other.chunkChecksum_;
       chunkNumberOfByes_ = other.chunkNumberOfByes_;
       chunkPayload_ = other.chunkPayload_;
-      totalNumberOfChunks_ = other.totalNumberOfChunks_;
-      completeBlobTotalNumberOfBytes_ = other.completeBlobTotalNumberOfBytes_;
       completeBlobSchemaSubject_ = other.completeBlobSchemaSubject_;
       completeBlobSchemaVersion_ = other.completeBlobSchemaVersion_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
@@ -122,20 +116,8 @@ namespace KafkaBlobChunking {
       }
     }
 
-    /// <summary>Field number for the "CompleteBlobChecksum" field.</summary>
-    public const int CompleteBlobChecksumFieldNumber = 3;
-    private string completeBlobChecksum_ = "";
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string CompleteBlobChecksum {
-      get { return completeBlobChecksum_; }
-      set {
-        completeBlobChecksum_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
     /// <summary>Field number for the "ChunkNumber" field.</summary>
-    public const int ChunkNumberFieldNumber = 4;
+    public const int ChunkNumberFieldNumber = 3;
     private ulong chunkNumber_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -147,7 +129,7 @@ namespace KafkaBlobChunking {
     }
 
     /// <summary>Field number for the "ChunkChecksum" field.</summary>
-    public const int ChunkChecksumFieldNumber = 5;
+    public const int ChunkChecksumFieldNumber = 4;
     private string chunkChecksum_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -159,7 +141,7 @@ namespace KafkaBlobChunking {
     }
 
     /// <summary>Field number for the "ChunkNumberOfByes" field.</summary>
-    public const int ChunkNumberOfByesFieldNumber = 6;
+    public const int ChunkNumberOfByesFieldNumber = 5;
     private ulong chunkNumberOfByes_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -171,7 +153,7 @@ namespace KafkaBlobChunking {
     }
 
     /// <summary>Field number for the "ChunkPayload" field.</summary>
-    public const int ChunkPayloadFieldNumber = 7;
+    public const int ChunkPayloadFieldNumber = 6;
     private pb::ByteString chunkPayload_ = pb::ByteString.Empty;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -182,32 +164,8 @@ namespace KafkaBlobChunking {
       }
     }
 
-    /// <summary>Field number for the "TotalNumberOfChunks" field.</summary>
-    public const int TotalNumberOfChunksFieldNumber = 8;
-    private ulong totalNumberOfChunks_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public ulong TotalNumberOfChunks {
-      get { return totalNumberOfChunks_; }
-      set {
-        totalNumberOfChunks_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "CompleteBlobTotalNumberOfBytes" field.</summary>
-    public const int CompleteBlobTotalNumberOfBytesFieldNumber = 9;
-    private ulong completeBlobTotalNumberOfBytes_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public ulong CompleteBlobTotalNumberOfBytes {
-      get { return completeBlobTotalNumberOfBytes_; }
-      set {
-        completeBlobTotalNumberOfBytes_ = value;
-      }
-    }
-
     /// <summary>Field number for the "CompleteBlobSchemaSubject" field.</summary>
-    public const int CompleteBlobSchemaSubjectFieldNumber = 10;
+    public const int CompleteBlobSchemaSubjectFieldNumber = 7;
     private string completeBlobSchemaSubject_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -219,7 +177,7 @@ namespace KafkaBlobChunking {
     }
 
     /// <summary>Field number for the "CompleteBlobSchemaVersion" field.</summary>
-    public const int CompleteBlobSchemaVersionFieldNumber = 11;
+    public const int CompleteBlobSchemaVersionFieldNumber = 8;
     private string completeBlobSchemaVersion_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -247,13 +205,10 @@ namespace KafkaBlobChunking {
       }
       if (ChunkId != other.ChunkId) return false;
       if (CompleteBlobId != other.CompleteBlobId) return false;
-      if (CompleteBlobChecksum != other.CompleteBlobChecksum) return false;
       if (ChunkNumber != other.ChunkNumber) return false;
       if (ChunkChecksum != other.ChunkChecksum) return false;
       if (ChunkNumberOfByes != other.ChunkNumberOfByes) return false;
       if (ChunkPayload != other.ChunkPayload) return false;
-      if (TotalNumberOfChunks != other.TotalNumberOfChunks) return false;
-      if (CompleteBlobTotalNumberOfBytes != other.CompleteBlobTotalNumberOfBytes) return false;
       if (CompleteBlobSchemaSubject != other.CompleteBlobSchemaSubject) return false;
       if (CompleteBlobSchemaVersion != other.CompleteBlobSchemaVersion) return false;
       return Equals(_unknownFields, other._unknownFields);
@@ -265,13 +220,10 @@ namespace KafkaBlobChunking {
       int hash = 1;
       if (ChunkId.Length != 0) hash ^= ChunkId.GetHashCode();
       if (CompleteBlobId.Length != 0) hash ^= CompleteBlobId.GetHashCode();
-      if (CompleteBlobChecksum.Length != 0) hash ^= CompleteBlobChecksum.GetHashCode();
       if (ChunkNumber != 0UL) hash ^= ChunkNumber.GetHashCode();
       if (ChunkChecksum.Length != 0) hash ^= ChunkChecksum.GetHashCode();
       if (ChunkNumberOfByes != 0UL) hash ^= ChunkNumberOfByes.GetHashCode();
       if (ChunkPayload.Length != 0) hash ^= ChunkPayload.GetHashCode();
-      if (TotalNumberOfChunks != 0UL) hash ^= TotalNumberOfChunks.GetHashCode();
-      if (CompleteBlobTotalNumberOfBytes != 0UL) hash ^= CompleteBlobTotalNumberOfBytes.GetHashCode();
       if (CompleteBlobSchemaSubject.Length != 0) hash ^= CompleteBlobSchemaSubject.GetHashCode();
       if (CompleteBlobSchemaVersion.Length != 0) hash ^= CompleteBlobSchemaVersion.GetHashCode();
       if (_unknownFields != null) {
@@ -300,40 +252,28 @@ namespace KafkaBlobChunking {
         output.WriteRawTag(18);
         output.WriteString(CompleteBlobId);
       }
-      if (CompleteBlobChecksum.Length != 0) {
-        output.WriteRawTag(26);
-        output.WriteString(CompleteBlobChecksum);
-      }
       if (ChunkNumber != 0UL) {
-        output.WriteRawTag(32);
+        output.WriteRawTag(24);
         output.WriteUInt64(ChunkNumber);
       }
       if (ChunkChecksum.Length != 0) {
-        output.WriteRawTag(42);
+        output.WriteRawTag(34);
         output.WriteString(ChunkChecksum);
       }
       if (ChunkNumberOfByes != 0UL) {
-        output.WriteRawTag(48);
+        output.WriteRawTag(40);
         output.WriteUInt64(ChunkNumberOfByes);
       }
       if (ChunkPayload.Length != 0) {
-        output.WriteRawTag(58);
+        output.WriteRawTag(50);
         output.WriteBytes(ChunkPayload);
       }
-      if (TotalNumberOfChunks != 0UL) {
-        output.WriteRawTag(64);
-        output.WriteUInt64(TotalNumberOfChunks);
-      }
-      if (CompleteBlobTotalNumberOfBytes != 0UL) {
-        output.WriteRawTag(72);
-        output.WriteUInt64(CompleteBlobTotalNumberOfBytes);
-      }
       if (CompleteBlobSchemaSubject.Length != 0) {
-        output.WriteRawTag(82);
+        output.WriteRawTag(58);
         output.WriteString(CompleteBlobSchemaSubject);
       }
       if (CompleteBlobSchemaVersion.Length != 0) {
-        output.WriteRawTag(90);
+        output.WriteRawTag(66);
         output.WriteString(CompleteBlobSchemaVersion);
       }
       if (_unknownFields != null) {
@@ -354,40 +294,28 @@ namespace KafkaBlobChunking {
         output.WriteRawTag(18);
         output.WriteString(CompleteBlobId);
       }
-      if (CompleteBlobChecksum.Length != 0) {
-        output.WriteRawTag(26);
-        output.WriteString(CompleteBlobChecksum);
-      }
       if (ChunkNumber != 0UL) {
-        output.WriteRawTag(32);
+        output.WriteRawTag(24);
         output.WriteUInt64(ChunkNumber);
       }
       if (ChunkChecksum.Length != 0) {
-        output.WriteRawTag(42);
+        output.WriteRawTag(34);
         output.WriteString(ChunkChecksum);
       }
       if (ChunkNumberOfByes != 0UL) {
-        output.WriteRawTag(48);
+        output.WriteRawTag(40);
         output.WriteUInt64(ChunkNumberOfByes);
       }
       if (ChunkPayload.Length != 0) {
-        output.WriteRawTag(58);
+        output.WriteRawTag(50);
         output.WriteBytes(ChunkPayload);
       }
-      if (TotalNumberOfChunks != 0UL) {
-        output.WriteRawTag(64);
-        output.WriteUInt64(TotalNumberOfChunks);
-      }
-      if (CompleteBlobTotalNumberOfBytes != 0UL) {
-        output.WriteRawTag(72);
-        output.WriteUInt64(CompleteBlobTotalNumberOfBytes);
-      }
       if (CompleteBlobSchemaSubject.Length != 0) {
-        output.WriteRawTag(82);
+        output.WriteRawTag(58);
         output.WriteString(CompleteBlobSchemaSubject);
       }
       if (CompleteBlobSchemaVersion.Length != 0) {
-        output.WriteRawTag(90);
+        output.WriteRawTag(66);
         output.WriteString(CompleteBlobSchemaVersion);
       }
       if (_unknownFields != null) {
@@ -406,9 +334,6 @@ namespace KafkaBlobChunking {
       if (CompleteBlobId.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(CompleteBlobId);
       }
-      if (CompleteBlobChecksum.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(CompleteBlobChecksum);
-      }
       if (ChunkNumber != 0UL) {
         size += 1 + pb::CodedOutputStream.ComputeUInt64Size(ChunkNumber);
       }
@@ -420,12 +345,6 @@ namespace KafkaBlobChunking {
       }
       if (ChunkPayload.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeBytesSize(ChunkPayload);
-      }
-      if (TotalNumberOfChunks != 0UL) {
-        size += 1 + pb::CodedOutputStream.ComputeUInt64Size(TotalNumberOfChunks);
-      }
-      if (CompleteBlobTotalNumberOfBytes != 0UL) {
-        size += 1 + pb::CodedOutputStream.ComputeUInt64Size(CompleteBlobTotalNumberOfBytes);
       }
       if (CompleteBlobSchemaSubject.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(CompleteBlobSchemaSubject);
@@ -451,9 +370,6 @@ namespace KafkaBlobChunking {
       if (other.CompleteBlobId.Length != 0) {
         CompleteBlobId = other.CompleteBlobId;
       }
-      if (other.CompleteBlobChecksum.Length != 0) {
-        CompleteBlobChecksum = other.CompleteBlobChecksum;
-      }
       if (other.ChunkNumber != 0UL) {
         ChunkNumber = other.ChunkNumber;
       }
@@ -465,12 +381,6 @@ namespace KafkaBlobChunking {
       }
       if (other.ChunkPayload.Length != 0) {
         ChunkPayload = other.ChunkPayload;
-      }
-      if (other.TotalNumberOfChunks != 0UL) {
-        TotalNumberOfChunks = other.TotalNumberOfChunks;
-      }
-      if (other.CompleteBlobTotalNumberOfBytes != 0UL) {
-        CompleteBlobTotalNumberOfBytes = other.CompleteBlobTotalNumberOfBytes;
       }
       if (other.CompleteBlobSchemaSubject.Length != 0) {
         CompleteBlobSchemaSubject = other.CompleteBlobSchemaSubject;
@@ -505,39 +415,27 @@ namespace KafkaBlobChunking {
             CompleteBlobId = input.ReadString();
             break;
           }
-          case 26: {
-            CompleteBlobChecksum = input.ReadString();
-            break;
-          }
-          case 32: {
+          case 24: {
             ChunkNumber = input.ReadUInt64();
             break;
           }
-          case 42: {
+          case 34: {
             ChunkChecksum = input.ReadString();
             break;
           }
-          case 48: {
+          case 40: {
             ChunkNumberOfByes = input.ReadUInt64();
             break;
           }
-          case 58: {
+          case 50: {
             ChunkPayload = input.ReadBytes();
             break;
           }
-          case 64: {
-            TotalNumberOfChunks = input.ReadUInt64();
-            break;
-          }
-          case 72: {
-            CompleteBlobTotalNumberOfBytes = input.ReadUInt64();
-            break;
-          }
-          case 82: {
+          case 58: {
             CompleteBlobSchemaSubject = input.ReadString();
             break;
           }
-          case 90: {
+          case 66: {
             CompleteBlobSchemaVersion = input.ReadString();
             break;
           }
@@ -568,39 +466,27 @@ namespace KafkaBlobChunking {
             CompleteBlobId = input.ReadString();
             break;
           }
-          case 26: {
-            CompleteBlobChecksum = input.ReadString();
-            break;
-          }
-          case 32: {
+          case 24: {
             ChunkNumber = input.ReadUInt64();
             break;
           }
-          case 42: {
+          case 34: {
             ChunkChecksum = input.ReadString();
             break;
           }
-          case 48: {
+          case 40: {
             ChunkNumberOfByes = input.ReadUInt64();
             break;
           }
-          case 58: {
+          case 50: {
             ChunkPayload = input.ReadBytes();
             break;
           }
-          case 64: {
-            TotalNumberOfChunks = input.ReadUInt64();
-            break;
-          }
-          case 72: {
-            CompleteBlobTotalNumberOfBytes = input.ReadUInt64();
-            break;
-          }
-          case 82: {
+          case 58: {
             CompleteBlobSchemaSubject = input.ReadString();
             break;
           }
-          case 90: {
+          case 66: {
             CompleteBlobSchemaVersion = input.ReadString();
             break;
           }

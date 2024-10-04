@@ -93,13 +93,13 @@ public class ChunkedStreamConsumer: BackgroundService
     {
         _logger.LogDebug($"Got request to retrieve chunks for payload {metadata.BlobId}");
         // For simplicity of example, don't handle weird extreme of chunks across multiple topics
-        if (metadata.ChunksTopicPartitionOffsets.Any(tpo => tpo.Topic != _topicChunks))
+        if (metadata.ChunksTopicPartitionOffsetsEarliest.Any(tpo => tpo.Topic != _topicChunks))
         {
             _logger.LogError("No chunk topic partition offsets");
             throw new Exception($"Received metadata about chunks that are not on our configured topic for chunks (configured is \"{_topicChunks}\")");
         }
         _logger.LogDebug($"Setting up consumer to consume from earliest offsets specified in metadata");
-        var chunkTopicPartitionOffsetsEarliest = metadata.ChunksTopicPartitionOffsets
+        var chunkTopicPartitionOffsetsEarliest = metadata.ChunksTopicPartitionOffsetsEarliest
             .GroupBy(tpo => (tpo.Topic, tpo.Partition))
             .ToDictionary(tpGroupedOffsets=> tpGroupedOffsets.Key.Partition, offsets => offsets.Min(o => o.Offset))
             .Select(partitionToOffsetMap => new TopicPartitionOffset(_topicChunks, new Partition(partitionToOffsetMap.Key), new Offset(partitionToOffsetMap.Value)))
@@ -120,6 +120,7 @@ public class ChunkedStreamConsumer: BackgroundService
 
                 if (result?.Message == null)
                 {
+                    // This should not happen.
                     _logger.LogDebug("We've reached the end of the chunks topic.");
                     await Task.Delay(TimeSpan.FromSeconds(8), cancellationToken);
                 }
@@ -129,16 +130,8 @@ public class ChunkedStreamConsumer: BackgroundService
                     var nextChunk = result.Message.Value;
                     if (nextChunk != null)
                     {
-                        if (metadata.ChunkTopicKeys.Contains(nextChunk.ChunkId))
+                        if (nextChunk.CompleteBlobId == metadata.BlobId)
                         {
-                            // This check is for most scenarios uneccessary, you'd rather just complete downloading all of the chunks and verifying the final blob.
-                            // But it is included for completeness, if you are not certain that you need it just remove it for the performance gain.
-                            var chunkChecksum = Convert.ToHexString(System.Security.Cryptography.SHA256.Create().ComputeHash(nextChunk.ChunkPayload.ToByteArray()));
-                            if (chunkChecksum != nextChunk.ChunkChecksum)
-                            {
-                                _logger.LogError($"Chunk checksum mismatch in chunk {nextChunk.ChunkId}. Expected embedded: {nextChunk.ChunkChecksum}, computed: {chunkChecksum}");
-                                throw new Exception("Chunk checksum mismatch");
-                            }
                             consumedChunks[nextChunk.ChunkNumber] = nextChunk;
                             if ((ulong) consumedChunks.Count == metadata.TotalNumberOfChunks)
                             {
@@ -166,6 +159,9 @@ public class ChunkedStreamConsumer: BackgroundService
         if (reassembledChecksum != metadata.FinalChecksum)
         {
             _logger.LogError($"Checksum for blob {metadata.BlobId} does not match checksum of reassembled chunks. Expected: {metadata.FinalChecksum}, actual: {reassembledChecksum}");
+            _logger.LogInformation($"Consumed content was");
+            var nextBlobPrintFriendly = System.Text.Encoding.UTF8.GetString(reassembled);
+            _logger.LogInformation($"=== BEGIN PAYLOAD ===\n{nextBlobPrintFriendly}\n=== END PAYLOAD ===");
             throw new Exception("Checksum mismatch for reassembled chunks");
         }
         if ((ulong) reassembled.Length != metadata.CompleteBlobTotalNumberOfBytes)
