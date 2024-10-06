@@ -53,6 +53,11 @@ public class ChunkingProducer
         // ToDo: Do first produce here, so that we only check and set low offsets once
         numberOfChunks++;
         var firstTimeNumberOfBytesRead = await stream.ReadAtLeastAsync(buffer, _chunkSizeBytes, throwOnEndOfStream: false, cancellationToken);
+        if(firstTimeNumberOfBytesRead < _chunkSizeBytes)
+        {
+            // We're at the end, resize buffer
+            buffer = buffer[0..firstTimeNumberOfBytesRead];
+        }
         streamChecksum.AppendData(buffer, 0, firstTimeNumberOfBytesRead);
         numberOfBytes += (uint) firstTimeNumberOfBytesRead;
 
@@ -72,7 +77,7 @@ public class ChunkingProducer
             Key = firstTimeNextChunkKey,
             Value = firstTimeNextChunkPayload
         };
-        var firstTimeProduceResult = chunkProducer.ProduceAsync(_topicChunks, firstTimeNextChunkMessage, cancellationToken).Result;
+        var firstTimeProduceResult = await chunkProducer.ProduceAsync(_topicChunks, firstTimeNextChunkMessage, cancellationToken);
         if (firstTimeProduceResult.Status == PersistenceStatus.Persisted)
         {
             lowOffsetsPerPartition[firstTimeProduceResult.Partition] = firstTimeProduceResult.Offset;
@@ -97,6 +102,11 @@ public class ChunkingProducer
             {
                 numberOfChunks++;
                 var numberOfBytesRead = await stream.ReadAtLeastAsync(buffer, _chunkSizeBytes, throwOnEndOfStream: false, cancellationToken);
+                if(numberOfBytesRead < _chunkSizeBytes)
+                {
+                    // We're at the end, resize buffer
+                    buffer = buffer[0..numberOfBytesRead];
+                }
                 streamChecksum.AppendData(buffer, 0, numberOfBytesRead);
                 numberOfBytes += (uint) numberOfBytesRead;
 
@@ -116,7 +126,7 @@ public class ChunkingProducer
                     Key = nextChunkKey,
                     Value = nextChunkPayload
                 };
-                var produceResult = chunkProducer.ProduceAsync(_topicChunks, nextChunkMessage, cancellationToken).Result;
+                var produceResult = await chunkProducer.ProduceAsync(_topicChunks, nextChunkMessage, cancellationToken);
                 if (produceResult.Status == PersistenceStatus.Persisted)
                 {
                     highOffsetsPerPartition[produceResult.Partition] = produceResult.Offset;

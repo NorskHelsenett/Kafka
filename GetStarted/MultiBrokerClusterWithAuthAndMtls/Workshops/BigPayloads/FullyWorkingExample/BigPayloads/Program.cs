@@ -6,6 +6,7 @@ var builder = WebApplication.CreateSlimBuilder(args);
 
 builder.Services.AddSingleton<ChunkingProducer>();
 builder.Services.AddHostedService<ChunkedStreamConsumer>();
+builder.Services.AddSingleton<OutputStateService>();
 
 var app = builder.Build();
 

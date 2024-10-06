@@ -9,14 +9,16 @@ public class ChunkedStreamConsumer: BackgroundService
 {
     private readonly ILogger<ChunkedStreamConsumer> _logger;
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
+    private readonly OutputStateService _outputStateService;
     private readonly string _topicChunks;
     private readonly string _topicMetadata;
     private readonly IConsumer<string, BlobChunk> _chunkConsumer;
 
-    public ChunkedStreamConsumer(ILogger<ChunkedStreamConsumer> logger, IHostApplicationLifetime hostApplicationLifetime)
+    public ChunkedStreamConsumer(ILogger<ChunkedStreamConsumer> logger, IHostApplicationLifetime hostApplicationLifetime, OutputStateService outputStateService)
     {
         _logger = logger;
         _hostApplicationLifetime = hostApplicationLifetime;
+        _outputStateService = outputStateService;
 
         var topicNameChunksTopic = Environment.GetEnvironmentVariable(BIG_PAYLOADS_CHUNKS_TOPIC);
         if(string.IsNullOrWhiteSpace(topicNameChunksTopic))
@@ -52,6 +54,8 @@ public class ChunkedStreamConsumer: BackgroundService
         await Task.Delay(TimeSpan.FromMilliseconds(1));
         _logger.LogDebug("Setting up Kafka blob metadata consumer.");
         var metadataConsumer = GetChunkMetadataConsumer();
+        _logger.LogDebug("Storing high watermarks at startup time");
+        await SaveStartupTimeLastTopicPartitionOffsets(metadataConsumer);
         _logger.LogDebug($"Subscribing to topic {_topicMetadata}");
         metadataConsumer.Subscribe(_topicMetadata);
         try
@@ -71,10 +75,16 @@ public class ChunkedStreamConsumer: BackgroundService
                     var nextBlobMetadata = result.Message.Value;
                     if (nextBlobMetadata != null)
                     {
-                        var nextBlob = await GetBlobByMetadataAsync(nextBlobMetadata, stoppingToken);
-                        var nextBlobPrintFriendly = System.Text.Encoding.UTF8.GetString(nextBlob);
+                        _outputStateService.Store(blobChunksMetadata: nextBlobMetadata, correlationId: nextBlobMetadata.FinalChecksum);
+
+                        List<byte> reassembled = new();
+                        await foreach(var b in GetBlobByMetadataAsync(nextBlobMetadata, stoppingToken)){
+                            reassembled.Add(b);
+                        }
+                        var nextBlobPrintFriendly = System.Text.Encoding.UTF8.GetString(reassembled.ToArray());
                         _logger.LogInformation($"Blob {result.Message.Key}:\n=== BEGIN PAYLOAD ===\n{nextBlobPrintFriendly}\n=== END PAYLOAD ===");
                     }
+                    _outputStateService.UpdateLastConsumedTopicPartitionOffsets(result.TopicPartitionOffset);
                 }
             }
         }
@@ -89,9 +99,12 @@ public class ChunkedStreamConsumer: BackgroundService
         }
     }
 
-    private async Task<byte[]> GetBlobByMetadataAsync(BlobChunksMetadata metadata, CancellationToken cancellationToken)
+    private async System.Collections.Generic.IAsyncEnumerable<byte> GetBlobByMetadataAsync(BlobChunksMetadata metadata, CancellationToken cancellationToken)
     {
         _logger.LogDebug($"Got request to retrieve chunks for payload {metadata.BlobId}");
+        var streamChecksum = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
+        ulong totalNumberOfBytesConsumed = 0;
+
         // For simplicity of example, don't handle weird extreme of chunks across multiple topics
         if (metadata.ChunksTopicPartitionOffsetsEarliest.Any(tpo => tpo.Topic != _topicChunks))
         {
@@ -111,66 +124,68 @@ public class ChunkedStreamConsumer: BackgroundService
         _chunkConsumer.Assign(chunkTopicPartitionOffsetsEarliest);
 
         var consumedChunks = new Dictionary<ulong, BlobChunk>();
-        try
+        ulong nextExpectedChunkNumber = 1;
+        while (!cancellationToken.IsCancellationRequested)
         {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                _logger.LogDebug($"Waiting for messages to consume on chunks topic");
-                var result = _chunkConsumer.Consume(cancellationToken);
+            _logger.LogDebug($"Waiting for messages to consume on chunks topic");
+            var result = _chunkConsumer.Consume(cancellationToken);
 
-                if (result?.Message == null)
+            if (result?.Message == null)
+            {
+                // This should not happen.
+                _logger.LogDebug("We've reached the end of the chunks topic.");
+                await Task.Delay(TimeSpan.FromSeconds(8), cancellationToken);
+            }
+            else
+            {
+                _logger.LogDebug($"Consumed chunk {result.Message.Key} at topic {result.Topic} partition {result.Partition.Value} offset {result.Offset.Value}");
+                var nextChunk = result.Message.Value;
+                if (nextChunk != null)
                 {
-                    // This should not happen.
-                    _logger.LogDebug("We've reached the end of the chunks topic.");
-                    await Task.Delay(TimeSpan.FromSeconds(8), cancellationToken);
-                }
-                else
-                {
-                    _logger.LogDebug($"Consumed chunk {result.Message.Key} at topic {result.Topic} partition {result.Partition.Value} offset {result.Offset.Value}");
-                    var nextChunk = result.Message.Value;
-                    if (nextChunk != null)
+                    if (nextChunk.CompleteBlobId == metadata.BlobId)
                     {
-                        if (nextChunk.CompleteBlobId == metadata.BlobId)
+                        if(nextExpectedChunkNumber != nextChunk.ChunkNumber)
                         {
-                            consumedChunks[nextChunk.ChunkNumber] = nextChunk;
-                            if ((ulong) consumedChunks.Count == metadata.TotalNumberOfChunks)
+                            if(nextChunk.ChunkNumber+1 == nextExpectedChunkNumber) // Because uint, do check with + instead of -
                             {
-                                _logger.LogDebug($"All chunks of blob {metadata.BlobId} consumed, stopping consuming and proceeding to reassemble");
-                                break;
+                                _logger.LogWarning($"When consuming chunks for blob with id \"{metadata.BlobId}\" received duplicate chunk, number {nextChunk.ChunkNumber} at topic {result.Topic} partition {result.Partition.Value} offset {result.Offset.Value}");
+                            }
+                            else
+                            {
+                                throw new Exception($"When consuming chunks for blob with id \"{metadata.BlobId}\" expected next chunk to be chunk number {nextExpectedChunkNumber} but instead received chunk number {nextChunk.ChunkNumber}");
                             }
                         }
                         else
                         {
-                            _logger.LogDebug($"Consumed chunk {nextChunk.ChunkId} is not referenced in the metadata with blob id {metadata.BlobId}.");
+                            nextExpectedChunkNumber++;
+                            streamChecksum.AppendData(nextChunk.ChunkPayload.ToByteArray(), 0, (int) nextChunk.ChunkNumberOfByes);
+                            foreach (var payloadByte in nextChunk.ChunkPayload)
+                            {
+                                yield return payloadByte;
+                            }
+                            totalNumberOfBytesConsumed += (ulong) nextChunk.ChunkPayload.Length;
+                            if(nextExpectedChunkNumber > metadata.TotalNumberOfChunks)
+                            {
+                                _logger.LogDebug($"All chunks of blob {metadata.BlobId} consumed, stopping consuming and proceeding to check checksum");
+                                break;
+                            }
                         }
+                    }
+                    else
+                    {
+                        _logger.LogDebug($"Consumed chunk {nextChunk.ChunkId} is not referenced in the metadata with blob id {metadata.BlobId}.");
                     }
                 }
             }
         }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "Kafka chunk consumer received exception while consuming, exiting");
-            // _hostApplicationLifetime.StopApplication();
-            throw;
-        }
 
-        var reassembled = ReassembleBlobFromChunks(consumedChunks.Values);
-        var reassembledChecksum = Convert.ToHexString(System.Security.Cryptography.SHA256.Create().ComputeHash(reassembled));
-        if (reassembledChecksum != metadata.FinalChecksum)
+        var finalChecksum = Convert.ToHexString(streamChecksum.GetHashAndReset());
+        var checksumsMatch = finalChecksum == metadata.FinalChecksum;
+        var numberOfBytesMatch = totalNumberOfBytesConsumed == metadata.CompleteBlobTotalNumberOfBytes;
+        if(!checksumsMatch || !numberOfBytesMatch)
         {
-            _logger.LogError($"Checksum for blob {metadata.BlobId} does not match checksum of reassembled chunks. Expected: {metadata.FinalChecksum}, actual: {reassembledChecksum}");
-            _logger.LogInformation($"Consumed content was");
-            var nextBlobPrintFriendly = System.Text.Encoding.UTF8.GetString(reassembled);
-            _logger.LogInformation($"=== BEGIN PAYLOAD ===\n{nextBlobPrintFriendly}\n=== END PAYLOAD ===");
-            throw new Exception("Checksum mismatch for reassembled chunks");
+            throw new Exception($"When consuming chunks for blob with id \"{metadata.BlobId}\" uncovered mismatch in consumed vs expected. Consumed checksum was \"{finalChecksum}\", expected \"{metadata.FinalChecksum}\". Consumed number of bytes was \"{totalNumberOfBytesConsumed}\", expected \"{metadata.CompleteBlobTotalNumberOfBytes}\"");
         }
-        if ((ulong) reassembled.Length != metadata.CompleteBlobTotalNumberOfBytes)
-        {
-            _logger.LogError($"Number of bytes retrieved for blob {metadata.BlobId} does not match size sender specified. Expected {metadata.CompleteBlobTotalNumberOfBytes}, received {reassembled.Length}");
-            throw new Exception("Number of bytes retrieved does not match size sender specified");
-        }
-
-        return reassembled;
     }
 
     private byte[] ReassembleBlobFromChunks(IEnumerable<BlobChunk> chunks)
@@ -211,6 +226,61 @@ public class ChunkedStreamConsumer: BackgroundService
             .SetValueDeserializer(new ProtobufDeserializer<BlobChunk>().AsSyncOverAsync())
             .SetErrorHandler((_, e) => _logger.LogError($"Error: {e.Reason}"))
             .Build();
+    }
+
+    private async Task SaveStartupTimeLastTopicPartitionOffsets(IConsumer<string, BlobChunksMetadata> consumer)
+    {
+        var partitions = await GetTopicPartitions(_topicMetadata);
+        List<TopicPartitionOffset> highOffsetsAtStartupTime = [];
+        List<TopicPartitionOffset> lowOffsetsAtStartupTime = [];
+        foreach(var partition in partitions)
+        {
+            var currentOffsets = consumer.QueryWatermarkOffsets(partition, timeout: TimeSpan.FromSeconds(5));
+            if(currentOffsets?.High.Value != null)
+            {
+                // Subtract 1, because received value is "the next that would be written"
+                long offsetHigh = currentOffsets.High.Value == 0 ? 0 : currentOffsets.High.Value - 1;
+                highOffsetsAtStartupTime.Add(new TopicPartitionOffset(_topicMetadata, partition.Partition.Value, offsetHigh));
+
+                // Offset value defaults to 0 if none are written
+                lowOffsetsAtStartupTime.Add(new TopicPartitionOffset(_topicMetadata, partition.Partition.Value, currentOffsets.Low.Value));
+            }
+        }
+        if(!_outputStateService.SetStartupTimeHightestTopicPartitionOffsets(highOffsetsAtStartupTime))
+        {
+            _logger.LogError($"Failed to save what topic high watermark offsets are at startup time");
+        }
+        if(_outputStateService.GetLastConsumedTopicPartitionOffsets().Count == 0)
+        {
+            foreach(var partitionOffset in lowOffsetsAtStartupTime)
+            {
+                if(!_outputStateService.UpdateLastConsumedTopicPartitionOffsets(partitionOffset))
+                {
+                    _logger.LogError($"Failed to set up low watermark offset for partition {partitionOffset.Offset.Value} at startup time");
+                }
+            }
+        }
+    }
+
+    private async Task<List<TopicPartition>> GetTopicPartitions(string topic)
+    {
+        var adminClientConfig = KafkaConfigBinder.GetAdminClientConfig();
+        using var adminClient = new AdminClientBuilder(adminClientConfig).Build();
+        try
+        {
+            var description = await adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames([topic]));
+            List<TopicPartition> topicPartitions = description.TopicDescriptions
+                .FirstOrDefault(tDescription => tDescription.Name == topic)
+                ?.Partitions
+                .Select(tpInfo => new TopicPartition(topic, tpInfo.Partition))
+                .ToList() ?? [];
+            return topicPartitions;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, $"An error occurred when retrieving list of partitions on topic");
+        }
+        return [];
     }
 
     public override async Task StopAsync(CancellationToken stoppingToken)
