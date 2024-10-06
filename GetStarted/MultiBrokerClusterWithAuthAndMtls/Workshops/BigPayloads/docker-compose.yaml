@@ -30,6 +30,7 @@ services:
       # App config
       BIG_PAYLOADS_CHUNKS_TOPIC: "workshop-big-payloads-chunks"
       BIG_PAYLOADS_METADATA_TOPIC: "workshop-big-payloads-metadata"
+      BIG_PAYLOADS_CHUNK_PAYLOAD_SIZE_BYTES: "256"
 
       # kafkal config
       KAFKA_BOOTSTRAP_SERVERS: "broker1:9092,broker2:9092,broker3:9092"

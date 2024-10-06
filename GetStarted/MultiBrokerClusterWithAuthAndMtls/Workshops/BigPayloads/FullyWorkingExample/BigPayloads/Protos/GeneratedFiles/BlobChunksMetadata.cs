@@ -28,23 +28,24 @@ namespace KafkaBlobChunking {
             "dGlvbk9mZnNldBINCgVUb3BpYxgBIAEoCRIRCglQYXJ0aXRpb24YAiABKAUS",
             "DgoGT2Zmc2V0GAMgASgDImAKJEthZmthTnVtYmVyT2ZDaHVua3NQZXJUb3Bp",
             "Y1BhcnRpdGlvbhINCgVUb3BpYxgBIAEoCRIRCglQYXJ0aXRpb24YAiABKAUS",
-            "FgoOTnVtYmVyT2ZDaHVua3MYAyABKAQikwMKEkJsb2JDaHVua3NNZXRhZGF0",
-            "YRIOCgZCbG9iSWQYASABKAkSRwojQ2h1bmtzVG9waWNQYXJ0aXRpb25PZmZz",
-            "ZXRzRWFybGllc3QYAiADKAsyGi5LYWZrYVRvcGljUGFydGl0aW9uT2Zmc2V0",
-            "EkUKIUNodW5rc1RvcGljUGFydGl0aW9uT2Zmc2V0c0xhdGVzdBgDIAMoCzIa",
-            "LkthZmthVG9waWNQYXJ0aXRpb25PZmZzZXQSSwocQ2h1bmtzUGVyVG9waWNQ",
-            "YXJ0aXRpb25Db3VudBgEIAMoCzIlLkthZmthTnVtYmVyT2ZDaHVua3NQZXJU",
-            "b3BpY1BhcnRpdGlvbhIbChNUb3RhbE51bWJlck9mQ2h1bmtzGAUgASgEEiYK",
-            "HkNvbXBsZXRlQmxvYlRvdGFsTnVtYmVyT2ZCeXRlcxgGIAEoBBIVCg1GaW5h",
-            "bENoZWNrc3VtGAcgASgJEhkKEUJsb2JTY2hlbWFTdWJqZWN0GAggASgJEhkK",
-            "EUJsb2JTY2hlbWFWZXJzaW9uGAkgASgJQhSqAhFLYWZrYUJsb2JDaHVua2lu",
-            "Z2IGcHJvdG8z"));
+            "FgoOTnVtYmVyT2ZDaHVua3MYAyABKAQiugMKEkJsb2JDaHVua3NNZXRhZGF0",
+            "YRIOCgZCbG9iSWQYASABKAkSEwoLQmxvYk93bmVySWQYAiABKAkSEAoIQmxv",
+            "Yk5hbWUYAyABKAkSRwojQ2h1bmtzVG9waWNQYXJ0aXRpb25PZmZzZXRzRWFy",
+            "bGllc3QYBCADKAsyGi5LYWZrYVRvcGljUGFydGl0aW9uT2Zmc2V0EkUKIUNo",
+            "dW5rc1RvcGljUGFydGl0aW9uT2Zmc2V0c0xhdGVzdBgFIAMoCzIaLkthZmth",
+            "VG9waWNQYXJ0aXRpb25PZmZzZXQSSwocQ2h1bmtzUGVyVG9waWNQYXJ0aXRp",
+            "b25Db3VudBgGIAMoCzIlLkthZmthTnVtYmVyT2ZDaHVua3NQZXJUb3BpY1Bh",
+            "cnRpdGlvbhIbChNUb3RhbE51bWJlck9mQ2h1bmtzGAcgASgEEiYKHkNvbXBs",
+            "ZXRlQmxvYlRvdGFsTnVtYmVyT2ZCeXRlcxgIIAEoBBIVCg1GaW5hbENoZWNr",
+            "c3VtGAkgASgJEhkKEUJsb2JTY2hlbWFTdWJqZWN0GAogASgJEhkKEUJsb2JT",
+            "Y2hlbWFWZXJzaW9uGAsgASgJQhSqAhFLYWZrYUJsb2JDaHVua2luZ2IGcHJv",
+            "dG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::KafkaBlobChunking.KafkaTopicPartitionOffset), global::KafkaBlobChunking.KafkaTopicPartitionOffset.Parser, new[]{ "Topic", "Partition", "Offset" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::KafkaBlobChunking.KafkaNumberOfChunksPerTopicPartition), global::KafkaBlobChunking.KafkaNumberOfChunksPerTopicPartition.Parser, new[]{ "Topic", "Partition", "NumberOfChunks" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::KafkaBlobChunking.BlobChunksMetadata), global::KafkaBlobChunking.BlobChunksMetadata.Parser, new[]{ "BlobId", "ChunksTopicPartitionOffsetsEarliest", "ChunksTopicPartitionOffsetsLatest", "ChunksPerTopicPartitionCount", "TotalNumberOfChunks", "CompleteBlobTotalNumberOfBytes", "FinalChecksum", "BlobSchemaSubject", "BlobSchemaVersion" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::KafkaBlobChunking.BlobChunksMetadata), global::KafkaBlobChunking.BlobChunksMetadata.Parser, new[]{ "BlobId", "BlobOwnerId", "BlobName", "ChunksTopicPartitionOffsetsEarliest", "ChunksTopicPartitionOffsetsLatest", "ChunksPerTopicPartitionCount", "TotalNumberOfChunks", "CompleteBlobTotalNumberOfBytes", "FinalChecksum", "BlobSchemaSubject", "BlobSchemaVersion" }, null, null, null, null)
           }));
     }
     #endregion
@@ -631,6 +632,8 @@ namespace KafkaBlobChunking {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public BlobChunksMetadata(BlobChunksMetadata other) : this() {
       blobId_ = other.blobId_;
+      blobOwnerId_ = other.blobOwnerId_;
+      blobName_ = other.blobName_;
       chunksTopicPartitionOffsetsEarliest_ = other.chunksTopicPartitionOffsetsEarliest_.Clone();
       chunksTopicPartitionOffsetsLatest_ = other.chunksTopicPartitionOffsetsLatest_.Clone();
       chunksPerTopicPartitionCount_ = other.chunksPerTopicPartitionCount_.Clone();
@@ -660,10 +663,34 @@ namespace KafkaBlobChunking {
       }
     }
 
+    /// <summary>Field number for the "BlobOwnerId" field.</summary>
+    public const int BlobOwnerIdFieldNumber = 2;
+    private string blobOwnerId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string BlobOwnerId {
+      get { return blobOwnerId_; }
+      set {
+        blobOwnerId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "BlobName" field.</summary>
+    public const int BlobNameFieldNumber = 3;
+    private string blobName_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string BlobName {
+      get { return blobName_; }
+      set {
+        blobName_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     /// <summary>Field number for the "ChunksTopicPartitionOffsetsEarliest" field.</summary>
-    public const int ChunksTopicPartitionOffsetsEarliestFieldNumber = 2;
+    public const int ChunksTopicPartitionOffsetsEarliestFieldNumber = 4;
     private static readonly pb::FieldCodec<global::KafkaBlobChunking.KafkaTopicPartitionOffset> _repeated_chunksTopicPartitionOffsetsEarliest_codec
-        = pb::FieldCodec.ForMessage(18, global::KafkaBlobChunking.KafkaTopicPartitionOffset.Parser);
+        = pb::FieldCodec.ForMessage(34, global::KafkaBlobChunking.KafkaTopicPartitionOffset.Parser);
     private readonly pbc::RepeatedField<global::KafkaBlobChunking.KafkaTopicPartitionOffset> chunksTopicPartitionOffsetsEarliest_ = new pbc::RepeatedField<global::KafkaBlobChunking.KafkaTopicPartitionOffset>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -672,9 +699,9 @@ namespace KafkaBlobChunking {
     }
 
     /// <summary>Field number for the "ChunksTopicPartitionOffsetsLatest" field.</summary>
-    public const int ChunksTopicPartitionOffsetsLatestFieldNumber = 3;
+    public const int ChunksTopicPartitionOffsetsLatestFieldNumber = 5;
     private static readonly pb::FieldCodec<global::KafkaBlobChunking.KafkaTopicPartitionOffset> _repeated_chunksTopicPartitionOffsetsLatest_codec
-        = pb::FieldCodec.ForMessage(26, global::KafkaBlobChunking.KafkaTopicPartitionOffset.Parser);
+        = pb::FieldCodec.ForMessage(42, global::KafkaBlobChunking.KafkaTopicPartitionOffset.Parser);
     private readonly pbc::RepeatedField<global::KafkaBlobChunking.KafkaTopicPartitionOffset> chunksTopicPartitionOffsetsLatest_ = new pbc::RepeatedField<global::KafkaBlobChunking.KafkaTopicPartitionOffset>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -683,9 +710,9 @@ namespace KafkaBlobChunking {
     }
 
     /// <summary>Field number for the "ChunksPerTopicPartitionCount" field.</summary>
-    public const int ChunksPerTopicPartitionCountFieldNumber = 4;
+    public const int ChunksPerTopicPartitionCountFieldNumber = 6;
     private static readonly pb::FieldCodec<global::KafkaBlobChunking.KafkaNumberOfChunksPerTopicPartition> _repeated_chunksPerTopicPartitionCount_codec
-        = pb::FieldCodec.ForMessage(34, global::KafkaBlobChunking.KafkaNumberOfChunksPerTopicPartition.Parser);
+        = pb::FieldCodec.ForMessage(50, global::KafkaBlobChunking.KafkaNumberOfChunksPerTopicPartition.Parser);
     private readonly pbc::RepeatedField<global::KafkaBlobChunking.KafkaNumberOfChunksPerTopicPartition> chunksPerTopicPartitionCount_ = new pbc::RepeatedField<global::KafkaBlobChunking.KafkaNumberOfChunksPerTopicPartition>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -694,7 +721,7 @@ namespace KafkaBlobChunking {
     }
 
     /// <summary>Field number for the "TotalNumberOfChunks" field.</summary>
-    public const int TotalNumberOfChunksFieldNumber = 5;
+    public const int TotalNumberOfChunksFieldNumber = 7;
     private ulong totalNumberOfChunks_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -706,7 +733,7 @@ namespace KafkaBlobChunking {
     }
 
     /// <summary>Field number for the "CompleteBlobTotalNumberOfBytes" field.</summary>
-    public const int CompleteBlobTotalNumberOfBytesFieldNumber = 6;
+    public const int CompleteBlobTotalNumberOfBytesFieldNumber = 8;
     private ulong completeBlobTotalNumberOfBytes_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -718,7 +745,7 @@ namespace KafkaBlobChunking {
     }
 
     /// <summary>Field number for the "FinalChecksum" field.</summary>
-    public const int FinalChecksumFieldNumber = 7;
+    public const int FinalChecksumFieldNumber = 9;
     private string finalChecksum_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -730,7 +757,7 @@ namespace KafkaBlobChunking {
     }
 
     /// <summary>Field number for the "BlobSchemaSubject" field.</summary>
-    public const int BlobSchemaSubjectFieldNumber = 8;
+    public const int BlobSchemaSubjectFieldNumber = 10;
     private string blobSchemaSubject_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -742,7 +769,7 @@ namespace KafkaBlobChunking {
     }
 
     /// <summary>Field number for the "BlobSchemaVersion" field.</summary>
-    public const int BlobSchemaVersionFieldNumber = 9;
+    public const int BlobSchemaVersionFieldNumber = 11;
     private string blobSchemaVersion_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -769,6 +796,8 @@ namespace KafkaBlobChunking {
         return true;
       }
       if (BlobId != other.BlobId) return false;
+      if (BlobOwnerId != other.BlobOwnerId) return false;
+      if (BlobName != other.BlobName) return false;
       if(!chunksTopicPartitionOffsetsEarliest_.Equals(other.chunksTopicPartitionOffsetsEarliest_)) return false;
       if(!chunksTopicPartitionOffsetsLatest_.Equals(other.chunksTopicPartitionOffsetsLatest_)) return false;
       if(!chunksPerTopicPartitionCount_.Equals(other.chunksPerTopicPartitionCount_)) return false;
@@ -785,6 +814,8 @@ namespace KafkaBlobChunking {
     public override int GetHashCode() {
       int hash = 1;
       if (BlobId.Length != 0) hash ^= BlobId.GetHashCode();
+      if (BlobOwnerId.Length != 0) hash ^= BlobOwnerId.GetHashCode();
+      if (BlobName.Length != 0) hash ^= BlobName.GetHashCode();
       hash ^= chunksTopicPartitionOffsetsEarliest_.GetHashCode();
       hash ^= chunksTopicPartitionOffsetsLatest_.GetHashCode();
       hash ^= chunksPerTopicPartitionCount_.GetHashCode();
@@ -815,27 +846,35 @@ namespace KafkaBlobChunking {
         output.WriteRawTag(10);
         output.WriteString(BlobId);
       }
+      if (BlobOwnerId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(BlobOwnerId);
+      }
+      if (BlobName.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(BlobName);
+      }
       chunksTopicPartitionOffsetsEarliest_.WriteTo(output, _repeated_chunksTopicPartitionOffsetsEarliest_codec);
       chunksTopicPartitionOffsetsLatest_.WriteTo(output, _repeated_chunksTopicPartitionOffsetsLatest_codec);
       chunksPerTopicPartitionCount_.WriteTo(output, _repeated_chunksPerTopicPartitionCount_codec);
       if (TotalNumberOfChunks != 0UL) {
-        output.WriteRawTag(40);
+        output.WriteRawTag(56);
         output.WriteUInt64(TotalNumberOfChunks);
       }
       if (CompleteBlobTotalNumberOfBytes != 0UL) {
-        output.WriteRawTag(48);
+        output.WriteRawTag(64);
         output.WriteUInt64(CompleteBlobTotalNumberOfBytes);
       }
       if (FinalChecksum.Length != 0) {
-        output.WriteRawTag(58);
+        output.WriteRawTag(74);
         output.WriteString(FinalChecksum);
       }
       if (BlobSchemaSubject.Length != 0) {
-        output.WriteRawTag(66);
+        output.WriteRawTag(82);
         output.WriteString(BlobSchemaSubject);
       }
       if (BlobSchemaVersion.Length != 0) {
-        output.WriteRawTag(74);
+        output.WriteRawTag(90);
         output.WriteString(BlobSchemaVersion);
       }
       if (_unknownFields != null) {
@@ -852,27 +891,35 @@ namespace KafkaBlobChunking {
         output.WriteRawTag(10);
         output.WriteString(BlobId);
       }
+      if (BlobOwnerId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(BlobOwnerId);
+      }
+      if (BlobName.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(BlobName);
+      }
       chunksTopicPartitionOffsetsEarliest_.WriteTo(ref output, _repeated_chunksTopicPartitionOffsetsEarliest_codec);
       chunksTopicPartitionOffsetsLatest_.WriteTo(ref output, _repeated_chunksTopicPartitionOffsetsLatest_codec);
       chunksPerTopicPartitionCount_.WriteTo(ref output, _repeated_chunksPerTopicPartitionCount_codec);
       if (TotalNumberOfChunks != 0UL) {
-        output.WriteRawTag(40);
+        output.WriteRawTag(56);
         output.WriteUInt64(TotalNumberOfChunks);
       }
       if (CompleteBlobTotalNumberOfBytes != 0UL) {
-        output.WriteRawTag(48);
+        output.WriteRawTag(64);
         output.WriteUInt64(CompleteBlobTotalNumberOfBytes);
       }
       if (FinalChecksum.Length != 0) {
-        output.WriteRawTag(58);
+        output.WriteRawTag(74);
         output.WriteString(FinalChecksum);
       }
       if (BlobSchemaSubject.Length != 0) {
-        output.WriteRawTag(66);
+        output.WriteRawTag(82);
         output.WriteString(BlobSchemaSubject);
       }
       if (BlobSchemaVersion.Length != 0) {
-        output.WriteRawTag(74);
+        output.WriteRawTag(90);
         output.WriteString(BlobSchemaVersion);
       }
       if (_unknownFields != null) {
@@ -887,6 +934,12 @@ namespace KafkaBlobChunking {
       int size = 0;
       if (BlobId.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(BlobId);
+      }
+      if (BlobOwnerId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(BlobOwnerId);
+      }
+      if (BlobName.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(BlobName);
       }
       size += chunksTopicPartitionOffsetsEarliest_.CalculateSize(_repeated_chunksTopicPartitionOffsetsEarliest_codec);
       size += chunksTopicPartitionOffsetsLatest_.CalculateSize(_repeated_chunksTopicPartitionOffsetsLatest_codec);
@@ -920,6 +973,12 @@ namespace KafkaBlobChunking {
       }
       if (other.BlobId.Length != 0) {
         BlobId = other.BlobId;
+      }
+      if (other.BlobOwnerId.Length != 0) {
+        BlobOwnerId = other.BlobOwnerId;
+      }
+      if (other.BlobName.Length != 0) {
+        BlobName = other.BlobName;
       }
       chunksTopicPartitionOffsetsEarliest_.Add(other.chunksTopicPartitionOffsetsEarliest_);
       chunksTopicPartitionOffsetsLatest_.Add(other.chunksTopicPartitionOffsetsLatest_);
@@ -963,34 +1022,42 @@ namespace KafkaBlobChunking {
             break;
           }
           case 18: {
-            chunksTopicPartitionOffsetsEarliest_.AddEntriesFrom(input, _repeated_chunksTopicPartitionOffsetsEarliest_codec);
+            BlobOwnerId = input.ReadString();
             break;
           }
           case 26: {
-            chunksTopicPartitionOffsetsLatest_.AddEntriesFrom(input, _repeated_chunksTopicPartitionOffsetsLatest_codec);
+            BlobName = input.ReadString();
             break;
           }
           case 34: {
+            chunksTopicPartitionOffsetsEarliest_.AddEntriesFrom(input, _repeated_chunksTopicPartitionOffsetsEarliest_codec);
+            break;
+          }
+          case 42: {
+            chunksTopicPartitionOffsetsLatest_.AddEntriesFrom(input, _repeated_chunksTopicPartitionOffsetsLatest_codec);
+            break;
+          }
+          case 50: {
             chunksPerTopicPartitionCount_.AddEntriesFrom(input, _repeated_chunksPerTopicPartitionCount_codec);
             break;
           }
-          case 40: {
+          case 56: {
             TotalNumberOfChunks = input.ReadUInt64();
             break;
           }
-          case 48: {
+          case 64: {
             CompleteBlobTotalNumberOfBytes = input.ReadUInt64();
             break;
           }
-          case 58: {
+          case 74: {
             FinalChecksum = input.ReadString();
             break;
           }
-          case 66: {
+          case 82: {
             BlobSchemaSubject = input.ReadString();
             break;
           }
-          case 74: {
+          case 90: {
             BlobSchemaVersion = input.ReadString();
             break;
           }
@@ -1018,34 +1085,42 @@ namespace KafkaBlobChunking {
             break;
           }
           case 18: {
-            chunksTopicPartitionOffsetsEarliest_.AddEntriesFrom(ref input, _repeated_chunksTopicPartitionOffsetsEarliest_codec);
+            BlobOwnerId = input.ReadString();
             break;
           }
           case 26: {
-            chunksTopicPartitionOffsetsLatest_.AddEntriesFrom(ref input, _repeated_chunksTopicPartitionOffsetsLatest_codec);
+            BlobName = input.ReadString();
             break;
           }
           case 34: {
+            chunksTopicPartitionOffsetsEarliest_.AddEntriesFrom(ref input, _repeated_chunksTopicPartitionOffsetsEarliest_codec);
+            break;
+          }
+          case 42: {
+            chunksTopicPartitionOffsetsLatest_.AddEntriesFrom(ref input, _repeated_chunksTopicPartitionOffsetsLatest_codec);
+            break;
+          }
+          case 50: {
             chunksPerTopicPartitionCount_.AddEntriesFrom(ref input, _repeated_chunksPerTopicPartitionCount_codec);
             break;
           }
-          case 40: {
+          case 56: {
             TotalNumberOfChunks = input.ReadUInt64();
             break;
           }
-          case 48: {
+          case 64: {
             CompleteBlobTotalNumberOfBytes = input.ReadUInt64();
             break;
           }
-          case 58: {
+          case 74: {
             FinalChecksum = input.ReadString();
             break;
           }
-          case 66: {
+          case 82: {
             BlobSchemaSubject = input.ReadString();
             break;
           }
-          case 74: {
+          case 90: {
             BlobSchemaVersion = input.ReadString();
             break;
           }

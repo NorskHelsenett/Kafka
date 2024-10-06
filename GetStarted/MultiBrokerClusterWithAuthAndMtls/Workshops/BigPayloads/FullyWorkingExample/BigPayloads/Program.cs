@@ -1,5 +1,4 @@
 ﻿global using static EnvVarNames;
-using System.Threading.Channels;
 using BigPayloads;
 
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -17,14 +16,48 @@ await KafkaTopicCreation.CreateTopicsAsync();
 app.Logger.LogInformation("Waiting for a couple of seconds so that the Kafka cluster has time to sync topics and things");
 await Task.Delay(TimeSpan.FromSeconds(5));
 
+string GetBlobId(string nameOfOwner, string suppliedBlobName)
+{
+    // Don't rely on propagating externally supplied IDs (they could be user supplied :O)
+    // Get 2 different checksums of name to reduce odds of ID collision to near enough zero.
+    // Use checksum of users name to avoid having to deal with weird characters and stuff.
+    var ownerNameChecksum = Convert.ToHexString(System.IO.Hashing.Crc32.Hash(System.Text.Encoding.UTF8.GetBytes(nameOfOwner))).ToLowerInvariant();
+    var blobNameBytes = System.Text.Encoding.UTF8.GetBytes(nameOfOwner);
+    var suppliedBlobNameFirstChecksum = Convert.ToHexString(System.IO.Hashing.Crc32.Hash(blobNameBytes)).ToLowerInvariant();
+    var suppliedBlobNameSecondChecksum = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(blobNameBytes)).ToLowerInvariant();
+    return $"{ownerNameChecksum}.{suppliedBlobNameFirstChecksum}.{suppliedBlobNameSecondChecksum}";
+}
+
+
 app.MapGet("/ProduceExamplePayload", async (HttpRequest req, ChunkingProducer chunkingProducer) =>
 {
+    var correlationId = System.Guid.NewGuid().ToString("D");
+    if(req.Headers.TryGetValue("X-Correlation-Id", out Microsoft.Extensions.Primitives.StringValues headerCorrelationId))
+    {
+        if(!string.IsNullOrWhiteSpace(headerCorrelationId.ToString()))
+        {
+            correlationId = headerCorrelationId.ToString();
+        }
+    }
+    var suppliedBlobName = "ToDo: Example value for now";
+    if(req.Headers.TryGetValue("X-Blob-Name", out Microsoft.Extensions.Primitives.StringValues headerSuppliedBlobName))
+    {
+        if(!string.IsNullOrWhiteSpace(headerSuppliedBlobName.ToString()))
+        {
+            suppliedBlobName = headerSuppliedBlobName.ToString();
+        }
+    }
+    var cancellationToken = req.HttpContext.RequestAborted;
+
+    var ownerId = "ToDo";
+    var internalBlobId = GetBlobId(nameOfOwner: ownerId, suppliedBlobName: suppliedBlobName);
+
     app.Logger.LogInformation("Received request to produce example payload");
     var examplePayload = File.ReadAllText("./CatIpsum.txt");
     var examplePayloadBytes = System.Text.Encoding.UTF8.GetBytes(examplePayload);
     app.Logger.LogInformation("Sending example payload");
-    var cancellationToken = req.HttpContext.RequestAborted;
-    await chunkingProducer.ProduceAsync(new MemoryStream(examplePayloadBytes), "example blob id", cancellationToken);
+
+    await chunkingProducer.ProduceAsync(new MemoryStream(examplePayloadBytes), blobId: internalBlobId, ownerId: ownerId, callersBlobName: suppliedBlobName, cancellationToken);
     return Results.Ok($"Example payload produced!");
 });
 
@@ -34,13 +67,30 @@ app.MapGet("/ProduceExamplePayload", async (HttpRequest req, ChunkingProducer ch
 app.MapPost("/register", async (HttpRequest req, Stream body,
     ChunkingProducer chunkingProducer) =>
 {
+    var correlationId = System.Guid.NewGuid().ToString("D");
+    if(req.Headers.TryGetValue("X-Correlation-Id", out Microsoft.Extensions.Primitives.StringValues headerCorrelationId))
+    {
+        if(!string.IsNullOrWhiteSpace(headerCorrelationId.ToString()))
+        {
+            correlationId = headerCorrelationId.ToString();
+        }
+    }
+    var suppliedBlobName = "";
+    if(req.Headers.TryGetValue("X-Blob-Name", out Microsoft.Extensions.Primitives.StringValues headerSuppliedBlobName))
+    {
+        if(!string.IsNullOrWhiteSpace(headerSuppliedBlobName.ToString()))
+        {
+            suppliedBlobName = headerSuppliedBlobName.ToString();
+        }
+    }
     var cancellationToken = req.HttpContext.RequestAborted;
-    var produceSuccessful = await chunkingProducer.ProduceAsync(body, "ID: ToDo", cancellationToken);
+
+    var ownerId = "ToDo";
+    var internalBlobId = GetBlobId(nameOfOwner: ownerId, suppliedBlobName: suppliedBlobName);
+    var produceSuccessful = await chunkingProducer.ProduceAsync(body, blobId: internalBlobId, ownerId: ownerId, callersBlobName: suppliedBlobName, cancellationToken);
     if(produceSuccessful) return Results.Ok();
     return Results.StatusCode(StatusCodes.Status500InternalServerError);
 });
-
-
 
 /* ToDo:
  * - Add submit custom payload endpoint

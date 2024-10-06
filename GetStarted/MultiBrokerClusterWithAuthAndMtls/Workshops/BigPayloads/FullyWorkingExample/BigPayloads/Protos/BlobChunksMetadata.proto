@@ -16,12 +16,14 @@ message KafkaNumberOfChunksPerTopicPartition {
 
 message BlobChunksMetadata {
     string BlobId = 1;
-    repeated .KafkaTopicPartitionOffset ChunksTopicPartitionOffsetsEarliest = 2;
-    repeated .KafkaTopicPartitionOffset ChunksTopicPartitionOffsetsLatest = 3;
-    repeated .KafkaNumberOfChunksPerTopicPartition ChunksPerTopicPartitionCount = 4;
-    uint64 TotalNumberOfChunks = 5;
-    uint64 CompleteBlobTotalNumberOfBytes = 6;
-    string FinalChecksum = 7;
-    string BlobSchemaSubject = 8;
-    string BlobSchemaVersion = 9;
+    string BlobOwnerId = 2;
+    string BlobName = 3;
+    repeated .KafkaTopicPartitionOffset ChunksTopicPartitionOffsetsEarliest = 4;
+    repeated .KafkaTopicPartitionOffset ChunksTopicPartitionOffsetsLatest = 5;
+    repeated .KafkaNumberOfChunksPerTopicPartition ChunksPerTopicPartitionCount = 6;
+    uint64 TotalNumberOfChunks = 7;
+    uint64 CompleteBlobTotalNumberOfBytes = 8;
+    string FinalChecksum = 9;
+    string BlobSchemaSubject = 10;
+    string BlobSchemaVersion = 11;
 }

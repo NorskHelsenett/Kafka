@@ -33,13 +33,19 @@ public class ChunkingProducer
         }
         _topicMetadata = topicNameMetadataTopic;
 
-        // _chunkSizeBytes = 1024 * 1024 - 1024;
-        _chunkSizeBytes = 128;
+        // var chunkSizeBytesDefault = $"{1024 * 1024 - 1024}";
+        var chunkSizeBytesDefault = $"{128}";
+        var chunkSizeBytesConfigured = Environment.GetEnvironmentVariable(BIG_PAYLOADS_CHUNK_PAYLOAD_SIZE_BYTES);
+        if(string.IsNullOrWhiteSpace(chunkSizeBytesConfigured))
+        {
+            _logger.LogError($"Chunk. Environment variable {nameof(BIG_PAYLOADS_CHUNK_PAYLOAD_SIZE_BYTES)} was not set/is empty, using default value {chunkSizeBytesDefault} for number of bytes in payload per chunk");
+            chunkSizeBytesConfigured = chunkSizeBytesDefault;
+        }
+        _chunkSizeBytes = int.Parse(chunkSizeBytesConfigured);
     }
 
-    public async Task<bool> ProduceAsync(Stream stream, string blobId, CancellationToken cancellationToken)
+    public async Task<bool> ProduceAsync(Stream stream, string blobId, string ownerId, string callersBlobName, CancellationToken cancellationToken)
     {
-        // var streamChecksum = System.Security.Cryptography.SHA256.Create();
         var streamChecksum = System.Security.Cryptography.IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[_chunkSizeBytes];
         Dictionary<int, long> lowOffsetsPerPartition = new();
@@ -157,6 +163,8 @@ public class ChunkingProducer
         var metadataPayload = new BlobChunksMetadata
         {
             BlobId = blobId,
+            BlobOwnerId = ownerId,
+            BlobName = callersBlobName,
             ChunksTopicPartitionOffsetsEarliest = { lowOffsetsPerPartition.Select(lows => new KafkaTopicPartitionOffset { Topic = _topicChunks, Partition = lows.Key, Offset = lows.Value }) },
             ChunksTopicPartitionOffsetsLatest = { highOffsetsPerPartition.Select(high => new KafkaTopicPartitionOffset { Topic = _topicChunks, Partition = high.Key, Offset = high.Value }) },
             ChunksPerTopicPartitionCount = { numberOfChunksPerPartition.Select(x => new KafkaNumberOfChunksPerTopicPartition {Topic = _topicChunks, Partition = x.Key, NumberOfChunks = x.Value})},
