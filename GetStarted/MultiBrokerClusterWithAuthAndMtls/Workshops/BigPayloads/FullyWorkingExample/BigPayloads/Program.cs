@@ -88,6 +88,9 @@ app.MapPost("/register", async (HttpRequest req, Stream body, ChunkingProducer c
 
     var ownerId = "ToDo";
     var internalBlobId = GetBlobId(nameOfOwner: ownerId, suppliedBlobName: suppliedBlobName);
+
+    app.Logger.LogInformation($"CorrelationId {correlationId} Received request from \"{ownerId}\" to store blob they named \"{suppliedBlobName}\" with internal blob ID \"{internalBlobId}\"");
+
     var produceSuccessful = await chunkingProducer.ProduceAsync(body, blobId: internalBlobId, ownerId: ownerId, callersBlobName: suppliedBlobName, cancellationToken);
     if(produceSuccessful) return Results.Ok();
     return Results.StatusCode(StatusCodes.Status500InternalServerError);
@@ -115,6 +118,8 @@ app.MapGet("/retrievestream", async (HttpContext context, ChunkConsumer consumer
 
     var ownerId = "ToDo";
     var internalBlobId = GetBlobId(nameOfOwner: ownerId, suppliedBlobName: suppliedBlobName);
+
+    app.Logger.LogInformation($"CorrelationId {correlationId} Received request from \"{ownerId}\" for blob they named \"{suppliedBlobName}\" with internal blob ID \"{internalBlobId}\"");
 
     if(!stateService.TryRetrieve(internalBlobId, out var blobChunksMetadata))
     {

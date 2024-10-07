@@ -34,6 +34,7 @@ internal class ChunkConsumer
         }
         _logger.LogDebug($"Setting up consumer to consume from earliest offsets specified in metadata");
         var chunkConsumer = GetChunkConsumer(metadata);
+        chunkConsumer.Subscribe(_topicChunks);
 
         ulong nextExpectedChunkNumber = 1;
         while (!cancellationToken.IsCancellationRequested)
