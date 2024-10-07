@@ -44,7 +44,7 @@ public class ChunkingProducer
         _chunkSizeBytes = int.Parse(chunkSizeBytesConfigured);
     }
 
-    public async Task<bool> ProduceAsync(Stream stream, string blobId, string ownerId, string callersBlobName, CancellationToken cancellationToken)
+    public async Task<bool> ProduceAsync(Stream stream, string blobId, string ownerId, string callersBlobName, string correlationId, CancellationToken cancellationToken)
     {
         var streamChecksum = System.Security.Cryptography.IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = new byte[_chunkSizeBytes];
@@ -173,6 +173,7 @@ public class ChunkingProducer
             FinalChecksum = finalChecksum,
             BlobSchemaSubject = "It is really best practice",
             BlobSchemaVersion = "The people who love semver haven't had the joys of rc versions",
+            CorrelationId = correlationId,
         };
         var metadataMessage = new Message<string, BlobChunksMetadata>
         {

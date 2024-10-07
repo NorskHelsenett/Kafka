@@ -11,7 +11,7 @@ GET {{baseurl}}/ProduceExamplePayload
 ###
 
 GET {{baseurl}}/retrievestream
-X-Blob-Name: ToDo%3A%20Example%20value%20for%20now
+X-Blob-Name: ToDo: Example value for now
 
 ###
 
@@ -66,5 +66,10 @@ Camarillasaurus Caenagnathus Thecocoelurus Velocisaurus Goyocephale Adeopapposau
 Jingshanosaurus Bradycneme Sinosaurus Omeisaurus Atlasaurus Valdosaurus.
 Compsognathus Linhenykus Centrosaurus Leyesaurus Agustinia, Bahariasaurus Daxiatitan
 Pachyspondylus, Minotaurasaurus Ornatotholus Thescelosaurus.
+
+###
+
+GET {{baseurl}}/retrievestream
+X-Blob-Name: sample/blob/name.whatevs
 
 ###

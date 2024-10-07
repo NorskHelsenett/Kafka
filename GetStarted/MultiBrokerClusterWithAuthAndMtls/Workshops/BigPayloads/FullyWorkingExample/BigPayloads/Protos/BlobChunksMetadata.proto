@@ -26,4 +26,5 @@ message BlobChunksMetadata {
     string FinalChecksum = 9;
     string BlobSchemaSubject = 10;
     string BlobSchemaVersion = 11;
+    string CorrelationId = 12;
 }

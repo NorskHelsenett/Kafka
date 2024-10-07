@@ -59,7 +59,7 @@ app.MapGet("/ProduceExamplePayload", async (HttpRequest req, ChunkingProducer ch
     var examplePayloadBytes = System.Text.Encoding.UTF8.GetBytes(examplePayload);
     app.Logger.LogInformation("Sending example payload");
 
-    await chunkingProducer.ProduceAsync(new MemoryStream(examplePayloadBytes), blobId: internalBlobId, ownerId: ownerId, callersBlobName: suppliedBlobName, cancellationToken);
+    await chunkingProducer.ProduceAsync(new MemoryStream(examplePayloadBytes), blobId: internalBlobId, ownerId: ownerId, callersBlobName: suppliedBlobName, correlationId: correlationId, cancellationToken);
     return Results.Ok($"Example payload produced!");
 });
 
@@ -91,8 +91,11 @@ app.MapPost("/register", async (HttpRequest req, Stream body, ChunkingProducer c
 
     app.Logger.LogInformation($"CorrelationId {correlationId} Received request from \"{ownerId}\" to store blob they named \"{suppliedBlobName}\" with internal blob ID \"{internalBlobId}\"");
 
-    var produceSuccessful = await chunkingProducer.ProduceAsync(body, blobId: internalBlobId, ownerId: ownerId, callersBlobName: suppliedBlobName, cancellationToken);
-    if(produceSuccessful) return Results.Ok();
+    var produceSuccessful = await chunkingProducer.ProduceAsync(body, blobId: internalBlobId, ownerId: ownerId, callersBlobName: suppliedBlobName, correlationId: correlationId, cancellationToken);
+    if (produceSuccessful)
+    {
+        return Results.Ok();
+    }
     return Results.StatusCode(StatusCodes.Status500InternalServerError);
 });
 
@@ -121,12 +124,22 @@ app.MapGet("/retrievestream", async (HttpContext context, ChunkConsumer consumer
 
     app.Logger.LogInformation($"CorrelationId {correlationId} Received request from \"{ownerId}\" for blob they named \"{suppliedBlobName}\" with internal blob ID \"{internalBlobId}\"");
 
-    if(!stateService.TryRetrieve(internalBlobId, out var blobChunksMetadata))
+    context.Response.Headers.Append("X-Correlation-Id", correlationId);
+
+    if(!stateService.TryRetrieve(internalBlobId, out var blobChunksMetadata) || blobChunksMetadata == null)
     {
+        app.Logger.LogInformation($"CorrelationId {correlationId} Received request from \"{ownerId}\" for blob they named \"{suppliedBlobName}\" with internal blob ID \"{internalBlobId}\" resulted in not found");
         return Results.NotFound();
     }
+
+    context.Response.Headers.Append("X-Blob-Correlation-Id", blobChunksMetadata.CorrelationId);
+    context.Response.Headers.Append("X-Blob-User-Supplied-Name", blobChunksMetadata.BlobName);
+    context.Response.Headers.Append("X-Blob-Owner-Id", blobChunksMetadata.BlobOwnerId);
+    context.Response.Headers.Append("X-Blob-Checksum", blobChunksMetadata.FinalChecksum);
+    context.Response.Headers.Append("X-Blob-Checksum-Algorithm", "sha-256");
     // var contentStream = new MemoryStream();
-    // await foreach(var b in consumer.GetBlobByMetadataAsync(blobChunksMetadata, cancellationToken)){
+    // await foreach(var b in consumer.GetBlobByMetadataAsync(blobChunksMetadata, cancellationToken))
+    // {
     //     contentStream.WriteByte(b);
     //     // context.Response.BodyWriter.Wr(b);
     // }

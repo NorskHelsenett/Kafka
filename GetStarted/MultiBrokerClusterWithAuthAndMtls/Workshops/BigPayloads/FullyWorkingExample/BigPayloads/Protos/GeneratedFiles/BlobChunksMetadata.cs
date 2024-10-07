@@ -28,7 +28,7 @@ namespace KafkaBlobChunking {
             "dGlvbk9mZnNldBINCgVUb3BpYxgBIAEoCRIRCglQYXJ0aXRpb24YAiABKAUS",
             "DgoGT2Zmc2V0GAMgASgDImAKJEthZmthTnVtYmVyT2ZDaHVua3NQZXJUb3Bp",
             "Y1BhcnRpdGlvbhINCgVUb3BpYxgBIAEoCRIRCglQYXJ0aXRpb24YAiABKAUS",
-            "FgoOTnVtYmVyT2ZDaHVua3MYAyABKAQiugMKEkJsb2JDaHVua3NNZXRhZGF0",
+            "FgoOTnVtYmVyT2ZDaHVua3MYAyABKAQi0QMKEkJsb2JDaHVua3NNZXRhZGF0",
             "YRIOCgZCbG9iSWQYASABKAkSEwoLQmxvYk93bmVySWQYAiABKAkSEAoIQmxv",
             "Yk5hbWUYAyABKAkSRwojQ2h1bmtzVG9waWNQYXJ0aXRpb25PZmZzZXRzRWFy",
             "bGllc3QYBCADKAsyGi5LYWZrYVRvcGljUGFydGl0aW9uT2Zmc2V0EkUKIUNo",
@@ -38,14 +38,14 @@ namespace KafkaBlobChunking {
             "cnRpdGlvbhIbChNUb3RhbE51bWJlck9mQ2h1bmtzGAcgASgEEiYKHkNvbXBs",
             "ZXRlQmxvYlRvdGFsTnVtYmVyT2ZCeXRlcxgIIAEoBBIVCg1GaW5hbENoZWNr",
             "c3VtGAkgASgJEhkKEUJsb2JTY2hlbWFTdWJqZWN0GAogASgJEhkKEUJsb2JT",
-            "Y2hlbWFWZXJzaW9uGAsgASgJQhSqAhFLYWZrYUJsb2JDaHVua2luZ2IGcHJv",
-            "dG8z"));
+            "Y2hlbWFWZXJzaW9uGAsgASgJEhUKDUNvcnJlbGF0aW9uSWQYDCABKAlCFKoC",
+            "EUthZmthQmxvYkNodW5raW5nYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::KafkaBlobChunking.KafkaTopicPartitionOffset), global::KafkaBlobChunking.KafkaTopicPartitionOffset.Parser, new[]{ "Topic", "Partition", "Offset" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::KafkaBlobChunking.KafkaNumberOfChunksPerTopicPartition), global::KafkaBlobChunking.KafkaNumberOfChunksPerTopicPartition.Parser, new[]{ "Topic", "Partition", "NumberOfChunks" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::KafkaBlobChunking.BlobChunksMetadata), global::KafkaBlobChunking.BlobChunksMetadata.Parser, new[]{ "BlobId", "BlobOwnerId", "BlobName", "ChunksTopicPartitionOffsetsEarliest", "ChunksTopicPartitionOffsetsLatest", "ChunksPerTopicPartitionCount", "TotalNumberOfChunks", "CompleteBlobTotalNumberOfBytes", "FinalChecksum", "BlobSchemaSubject", "BlobSchemaVersion" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::KafkaBlobChunking.BlobChunksMetadata), global::KafkaBlobChunking.BlobChunksMetadata.Parser, new[]{ "BlobId", "BlobOwnerId", "BlobName", "ChunksTopicPartitionOffsetsEarliest", "ChunksTopicPartitionOffsetsLatest", "ChunksPerTopicPartitionCount", "TotalNumberOfChunks", "CompleteBlobTotalNumberOfBytes", "FinalChecksum", "BlobSchemaSubject", "BlobSchemaVersion", "CorrelationId" }, null, null, null, null)
           }));
     }
     #endregion
@@ -642,6 +642,7 @@ namespace KafkaBlobChunking {
       finalChecksum_ = other.finalChecksum_;
       blobSchemaSubject_ = other.blobSchemaSubject_;
       blobSchemaVersion_ = other.blobSchemaVersion_;
+      correlationId_ = other.correlationId_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -780,6 +781,18 @@ namespace KafkaBlobChunking {
       }
     }
 
+    /// <summary>Field number for the "CorrelationId" field.</summary>
+    public const int CorrelationIdFieldNumber = 12;
+    private string correlationId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string CorrelationId {
+      get { return correlationId_; }
+      set {
+        correlationId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -806,6 +819,7 @@ namespace KafkaBlobChunking {
       if (FinalChecksum != other.FinalChecksum) return false;
       if (BlobSchemaSubject != other.BlobSchemaSubject) return false;
       if (BlobSchemaVersion != other.BlobSchemaVersion) return false;
+      if (CorrelationId != other.CorrelationId) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -824,6 +838,7 @@ namespace KafkaBlobChunking {
       if (FinalChecksum.Length != 0) hash ^= FinalChecksum.GetHashCode();
       if (BlobSchemaSubject.Length != 0) hash ^= BlobSchemaSubject.GetHashCode();
       if (BlobSchemaVersion.Length != 0) hash ^= BlobSchemaVersion.GetHashCode();
+      if (CorrelationId.Length != 0) hash ^= CorrelationId.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -877,6 +892,10 @@ namespace KafkaBlobChunking {
         output.WriteRawTag(90);
         output.WriteString(BlobSchemaVersion);
       }
+      if (CorrelationId.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteString(CorrelationId);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -922,6 +941,10 @@ namespace KafkaBlobChunking {
         output.WriteRawTag(90);
         output.WriteString(BlobSchemaVersion);
       }
+      if (CorrelationId.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteString(CorrelationId);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -958,6 +981,9 @@ namespace KafkaBlobChunking {
       }
       if (BlobSchemaVersion.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(BlobSchemaVersion);
+      }
+      if (CorrelationId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(CorrelationId);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -997,6 +1023,9 @@ namespace KafkaBlobChunking {
       }
       if (other.BlobSchemaVersion.Length != 0) {
         BlobSchemaVersion = other.BlobSchemaVersion;
+      }
+      if (other.CorrelationId.Length != 0) {
+        CorrelationId = other.CorrelationId;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1061,6 +1090,10 @@ namespace KafkaBlobChunking {
             BlobSchemaVersion = input.ReadString();
             break;
           }
+          case 98: {
+            CorrelationId = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -1122,6 +1155,10 @@ namespace KafkaBlobChunking {
           }
           case 90: {
             BlobSchemaVersion = input.ReadString();
+            break;
+          }
+          case 98: {
+            CorrelationId = input.ReadString();
             break;
           }
         }
