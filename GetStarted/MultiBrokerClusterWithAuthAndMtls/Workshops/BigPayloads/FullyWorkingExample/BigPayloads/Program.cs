@@ -63,9 +63,6 @@ app.MapGet("/ProduceExamplePayload", async (HttpRequest req, ChunkingProducer ch
     return Results.Ok($"Example payload produced!");
 });
 
-
-// curl --request POST 'https://localhost:<port>/register' --header 'Content-Type: application/json' --data-raw '{ "Name":"Samson", "Age": 23, "Country":"Nigeria" }'
-// curl --request POST "https://localhost:<port>/register" --header "Content-Type: application/json" --data-raw "{ \"Name\":\"Samson\", \"Age\": 23, \"Country\":\"Nigeria\" }"
 app.MapPost("/register", async (HttpRequest req, Stream body, ChunkingProducer chunkingProducer) =>
 {
     var correlationId = System.Guid.NewGuid().ToString("D");
