@@ -20,7 +20,7 @@ internal class ChunkConsumer
         }
         _topicChunks = topicNameChunksTopic;
     }
-    public async IAsyncEnumerable<byte> GetBlobByMetadataAsync(BlobChunksMetadata metadata, [EnumeratorCancellation] CancellationToken cancellationToken)
+    public async IAsyncEnumerable<byte> GetBlobByMetadataAsync(BlobChunksMetadata metadata, string correlationId, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         _logger.LogDebug($"Got request to retrieve chunks for payload {metadata.BlobId}");
         var streamChecksum = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
@@ -100,6 +100,7 @@ internal class ChunkConsumer
         {
             throw new Exception($"When consuming chunks for blob with id \"{metadata.BlobId}\" uncovered mismatch in consumed vs expected. Consumed checksum was \"{finalChecksum}\", expected \"{metadata.FinalChecksum}\". Consumed number of bytes was \"{totalNumberOfBytesConsumed}\", expected \"{metadata.CompleteBlobTotalNumberOfBytes}\"");
         }
+        _logger.LogTrace($"CorrelationId {correlationId} all chunks of blob with id \"{metadata.BlobId}\" successfully consumed (final checksum matches, and number of bytes is correct)");
     }
 
     private IConsumer<string, BlobChunk> GetChunkConsumer(BlobChunksMetadata metadata)

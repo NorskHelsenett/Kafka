@@ -130,8 +130,7 @@ app.MapGet("/retrievestream", async (HttpContext context, ChunkConsumer consumer
     //     contentStream.WriteByte(b);
     //     // context.Response.BodyWriter.Wr(b);
     // }
-    return Results.Ok(consumer.GetBlobByMetadataAsync(blobChunksMetadata, cancellationToken));
-
+    return Results.Ok(consumer.GetBlobByMetadataAsync(blobChunksMetadata, correlationId, cancellationToken));
 });
 
 /* ToDo:
