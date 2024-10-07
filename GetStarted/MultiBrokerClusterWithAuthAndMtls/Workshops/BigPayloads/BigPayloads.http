@@ -10,6 +10,6 @@ GET {{baseurl}}/ProduceExamplePayload
 
 ###
 GET {{baseurl}}/retrievestream
-X-Blob-Name: firstexample
+X-Blob-Name: ToDo%3A%20Example%20value%20for%20now
 
 ###

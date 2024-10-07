@@ -188,22 +188,6 @@ public class ChunkedStreamConsumer: BackgroundService
         }
     }
 
-    private byte[] ReassembleBlobFromChunks(IEnumerable<BlobChunk> chunks)
-    {
-        var orderedChunks = chunks
-            .OrderBy(chunk => chunk.ChunkNumber)
-            .DistinctBy(chunk => chunk.ChunkNumber); // Not really necessary because of what happens before we reach this function, but nice safeguard should someone just copy it out
-        var reconstructed = orderedChunks
-            .Aggregate(new List<byte>(), (aggregated, nextChunkToProcess) =>
-            {
-                aggregated.AddRange(nextChunkToProcess.ChunkPayload.ToByteArray());
-                return aggregated;
-            })
-            .ToArray();
-        // Could verify checksum here, but for the sake of keeping this function simple/not making it do everything in the world, leave that to the caller.
-        return reconstructed;
-    }
-
     private IConsumer<string, BlobChunksMetadata> GetChunkMetadataConsumer()
     {
         return  new ConsumerBuilder<string, BlobChunksMetadata>(KafkaConfigBinder.GetConsumerConfig())

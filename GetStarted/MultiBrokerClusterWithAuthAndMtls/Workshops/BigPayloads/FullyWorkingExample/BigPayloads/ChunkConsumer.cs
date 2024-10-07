@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Confluent.Kafka;
 using Confluent.Kafka.SyncOverAsync;
 using Confluent.SchemaRegistry.Serdes;
@@ -19,7 +20,7 @@ internal class ChunkConsumer
         }
         _topicChunks = topicNameChunksTopic;
     }
-    public async IAsyncEnumerable<byte> GetBlobByMetadataAsync(BlobChunksMetadata metadata, CancellationToken cancellationToken)
+    public async IAsyncEnumerable<byte> GetBlobByMetadataAsync(BlobChunksMetadata metadata, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         _logger.LogDebug($"Got request to retrieve chunks for payload {metadata.BlobId}");
         var streamChecksum = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
@@ -32,17 +33,13 @@ internal class ChunkConsumer
             throw new Exception($"Received metadata about chunks that are not on our configured topic for chunks (configured is \"{_topicChunks}\")");
         }
         _logger.LogDebug($"Setting up consumer to consume from earliest offsets specified in metadata");
-        var _chunkConsumer = GetChunkConsumer(metadata);
-        // _chunkConsumer.Commit(chunkTopicPartitionOffsetsEarliest);
-        // _chunkConsumer.Unassign();
-        // _chunkConsumer.Assign(chunkTopicPartitionOffsetsEarliest);
+        var chunkConsumer = GetChunkConsumer(metadata);
 
-        var consumedChunks = new Dictionary<ulong, BlobChunk>();
         ulong nextExpectedChunkNumber = 1;
         while (!cancellationToken.IsCancellationRequested)
         {
             _logger.LogDebug($"Waiting for messages to consume on chunks topic");
-            var result = _chunkConsumer.Consume(cancellationToken);
+            var result = chunkConsumer.Consume(cancellationToken);
 
             if (result?.Message == null)
             {
@@ -66,6 +63,7 @@ internal class ChunkConsumer
                             }
                             else
                             {
+                                chunkConsumer.Close();
                                 throw new Exception($"When consuming chunks for blob with id \"{metadata.BlobId}\" expected next chunk to be chunk number {nextExpectedChunkNumber} but instead received chunk number {nextChunk.ChunkNumber}");
                             }
                         }
@@ -93,27 +91,32 @@ internal class ChunkConsumer
             }
         }
 
+        chunkConsumer.Close();
+        var finalChecksum = Convert.ToHexString(streamChecksum.GetHashAndReset());
+        var checksumsMatch = finalChecksum == metadata.FinalChecksum;
+        var numberOfBytesMatch = totalNumberOfBytesConsumed == metadata.CompleteBlobTotalNumberOfBytes;
+        if(!checksumsMatch || !numberOfBytesMatch)
+        {
+            throw new Exception($"When consuming chunks for blob with id \"{metadata.BlobId}\" uncovered mismatch in consumed vs expected. Consumed checksum was \"{finalChecksum}\", expected \"{metadata.FinalChecksum}\". Consumed number of bytes was \"{totalNumberOfBytesConsumed}\", expected \"{metadata.CompleteBlobTotalNumberOfBytes}\"");
+        }
     }
 
     private IConsumer<string, BlobChunk> GetChunkConsumer(BlobChunksMetadata metadata)
     {
         var kafkaConfig = KafkaConfigBinder.GetConsumerConfig();
-        kafkaConfig.GroupId = $"{kafkaConfig.GroupId}-chunks";
+        kafkaConfig.GroupId = $"{kafkaConfig.GroupId}-{metadata.BlobId}-{Guid.NewGuid()}";
+        var earliestOffsetsWithChunks = metadata.ChunksTopicPartitionOffsetsEarliest
+            .GroupBy(tpo => (tpo.Topic, tpo.Partition))
+            .ToDictionary(tpGroupedOffsets => tpGroupedOffsets.Key.Partition, offsets => offsets.Min(o => o.Offset))
+            .Select(partitionToOffsetMap => new TopicPartitionOffset(_topicChunks, new Partition(partitionToOffsetMap.Key), new Offset(partitionToOffsetMap.Value)))
+            .ToArray();
+        _logger.LogDebug($"Earliest offsets: {System.Text.Json.JsonSerializer.Serialize(earliestOffsetsWithChunks)}");
         // var chunkConsumer = new ConsumerBuilder<string, BlobChunk>(kafkaConfig)
         return new ConsumerBuilder<string, BlobChunk>(kafkaConfig)
             .SetValueDeserializer(new ProtobufDeserializer<BlobChunk>().AsSyncOverAsync())
             .SetErrorHandler((_, e) => _logger.LogError($"Error: {e.Reason}"))
-            .SetPartitionsAssignedHandler((c, partitions) =>
-            {
-                return metadata.ChunksTopicPartitionOffsetsEarliest
-                        .GroupBy(tpo => (tpo.Topic, tpo.Partition))
-                        .ToDictionary(tpGroupedOffsets => tpGroupedOffsets.Key.Partition, offsets => offsets.Min(o => o.Offset))
-                        .Select(partitionToOffsetMap => new TopicPartitionOffset(_topicChunks, new Partition(partitionToOffsetMap.Key), new Offset(partitionToOffsetMap.Value)))
-                        .ToArray();
-
-            })
+            .SetPartitionsAssignedHandler((_, _) => earliestOffsetsWithChunks)
             .Build();
     }
 
 }
-

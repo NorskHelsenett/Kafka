@@ -5,7 +5,7 @@ var builder = WebApplication.CreateSlimBuilder(args);
 
 builder.Services.AddSingleton<ChunkingProducer>();
 builder.Services.AddScoped<ChunkConsumer>();
-        
+
 builder.Services.AddHostedService<ChunkedStreamConsumer>();
 builder.Services.AddSingleton<OutputStateService>();
 
@@ -66,8 +66,7 @@ app.MapGet("/ProduceExamplePayload", async (HttpRequest req, ChunkingProducer ch
 
 // curl --request POST 'https://localhost:<port>/register' --header 'Content-Type: application/json' --data-raw '{ "Name":"Samson", "Age": 23, "Country":"Nigeria" }'
 // curl --request POST "https://localhost:<port>/register" --header "Content-Type: application/json" --data-raw "{ \"Name\":\"Samson\", \"Age\": 23, \"Country\":\"Nigeria\" }"
-app.MapPost("/register", async (HttpRequest req, Stream body,
-    ChunkingProducer chunkingProducer) =>
+app.MapPost("/register", async (HttpRequest req, Stream body, ChunkingProducer chunkingProducer) =>
 {
     var correlationId = System.Guid.NewGuid().ToString("D");
     if(req.Headers.TryGetValue("X-Correlation-Id", out Microsoft.Extensions.Primitives.StringValues headerCorrelationId))
@@ -94,9 +93,9 @@ app.MapPost("/register", async (HttpRequest req, Stream body,
     return Results.StatusCode(StatusCodes.Status500InternalServerError);
 });
 
-app.MapGet("/retrievestream", async (HttpContext context, ChunkedStreamConsumer consumer, OutputStateService stateService) =>
+app.MapGet("/retrievestream", async (HttpContext context, ChunkConsumer consumer, OutputStateService stateService) =>
 {
-        var correlationId = System.Guid.NewGuid().ToString("D");
+    var correlationId = System.Guid.NewGuid().ToString("D");
     if(context.Request.Headers.TryGetValue("X-Correlation-Id", out Microsoft.Extensions.Primitives.StringValues headerCorrelationId))
     {
         if(!string.IsNullOrWhiteSpace(headerCorrelationId.ToString()))
