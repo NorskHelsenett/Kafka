@@ -27,7 +27,7 @@ public static class KafkaTopicCreation
                          NumPartitions = -1,
                          Configs = new Dictionary<string, string>
                          {
-                            { "cleanup.policy", "compact" },
+                            { "cleanup.policy", "compact,delete" },
                             { "retention.bytes", "-1" },
                             { "retention.ms", "-1" },
                             { "min.compaction.lag.ms", $"{TimeSpan.FromMinutes(15).TotalMilliseconds}" },
