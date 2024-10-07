@@ -6,7 +6,7 @@ var builder = WebApplication.CreateSlimBuilder(args);
 builder.Services.AddSingleton<ChunkingProducer>();
 builder.Services.AddScoped<ChunkConsumer>();
 
-builder.Services.AddHostedService<ChunkedStreamConsumer>();
+builder.Services.AddHostedService<BlobMetadataConsumer>();
 builder.Services.AddSingleton<OutputStateService>();
 
 var app = builder.Build();
@@ -96,7 +96,7 @@ app.MapPost("/store", async (HttpRequest req, Stream body, ChunkingProducer chun
     return Results.StatusCode(StatusCodes.Status500InternalServerError);
 });
 
-app.MapGet("/retrieve", async (HttpContext context, ChunkConsumer consumer, OutputStateService stateService) =>
+app.MapGet("/retrieve", (HttpContext context, ChunkConsumer consumer, OutputStateService stateService) =>
 {
     var correlationId = System.Guid.NewGuid().ToString("D");
     if(context.Request.Headers.TryGetValue("X-Correlation-Id", out Microsoft.Extensions.Primitives.StringValues headerCorrelationId))
@@ -126,7 +126,7 @@ app.MapGet("/retrieve", async (HttpContext context, ChunkConsumer consumer, Outp
     if(!stateService.TryRetrieve(internalBlobId, out var blobChunksMetadata) || blobChunksMetadata == null)
     {
         app.Logger.LogInformation($"CorrelationId {correlationId} Received request from \"{ownerId}\" for blob they named \"{suppliedBlobName}\" with internal blob ID \"{internalBlobId}\" resulted in not found");
-        return Results.NotFound();
+        return Task.FromResult(Results.NotFound());
     }
 
     context.Response.Headers.Append("X-Blob-Correlation-Id", blobChunksMetadata.CorrelationId);
@@ -143,7 +143,7 @@ app.MapGet("/retrieve", async (HttpContext context, ChunkConsumer consumer, Outp
     // return contentStream;
 
     byte[] buffer = new byte[1];
-    return Results.Stream(streamWriterCallback: async (outStream) =>
+    return Task.FromResult(Results.Stream(streamWriterCallback: async (outStream) =>
         {
             await foreach (var b in consumer.GetBlobByMetadataAsync(blobChunksMetadata, correlationId, cancellationToken))
             {
@@ -151,7 +151,7 @@ app.MapGet("/retrieve", async (HttpContext context, ChunkConsumer consumer, Outp
                 await outStream.WriteAsync(buffer);
             }
         }
-    );
+    ));
 
     // return Results.Ok(consumer.GetBlobByMetadataAsync(blobChunksMetadata, correlationId, cancellationToken));
 });
@@ -200,6 +200,41 @@ app.MapPost("/remove", async (HttpContext context, ChunkingProducer chunkingProd
         return Results.Ok();
     }
     return Results.StatusCode(StatusCodes.Status500InternalServerError);
+});
+
+
+app.MapGet("/healthz", () => Results.Ok("Started successfully"));
+app.MapGet("/healthz/live", () => Results.Ok("Alive and well"));
+app.MapGet("/healthz/ready", (OutputStateService outputStateService) =>
+{
+    if(outputStateService.Ready())
+    {
+        return Results.Ok("ready");
+    }
+
+    var offsetTarget = outputStateService.GetStartupTimeHightestTopicPartitionOffsets();
+    var offsetCurrent = outputStateService.GetLastConsumedTopicPartitionOffsets();
+    var sb = new System.Text.StringBuilder();
+    sb.Append('{').Append('\n');
+    foreach(var target in offsetTarget)
+    {
+        var current = offsetCurrent.FirstOrDefault(c => c.Topic == target.Topic && c.Partition == target.Partition);
+        sb.Append('\t').Append('{');
+        sb.Append($"\"Topic\": \"{target.Topic}\"").Append(",\t");
+        sb.Append($"\"Partition\": \"{target.Partition.Value}\"").Append(",\t");
+        sb.Append($"\"Current offset\": \"{current?.Offset.Value}\"").Append(",\t");
+        sb.Append($"\"Target offset at startup\": \"{target.Offset.Value}\"");
+        sb.Append('}').Append('\n');
+    }
+    sb.Append('}');
+    var statusString = sb.ToString();
+    // Because kubernetes by default treats responses with status codes 200-399 as passes and 400+ as failures, blindly follow that convention and rely on the juicy status code.
+    // https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-liveness-http-request
+    return Results.Text(
+        content: $"Not ready. State hasn't caught up\n\nStatus:\n{statusString}",
+        contentType: "text/html",
+        contentEncoding: System.Text.Encoding.UTF8,
+        statusCode: (int?) StatusCodes.Status503ServiceUnavailable);
 });
 
 app.Run();

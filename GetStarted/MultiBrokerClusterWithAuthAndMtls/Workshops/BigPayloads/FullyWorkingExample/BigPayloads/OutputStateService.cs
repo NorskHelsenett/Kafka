@@ -57,6 +57,13 @@ public class OutputStateService
             .ToList();
     }
 
+    public List<TopicPartitionOffset> GetStartupTimeHightestTopicPartitionOffsets()
+    {
+        return _startupTimeLatestMetadataTpo
+            .Select(KeyValuePair => new TopicPartitionOffset(KeyValuePair.Key.TopicName, KeyValuePair.Key.Partition, KeyValuePair.Value))
+            .ToList();
+    }
+
     public bool UpdateLastConsumedTopicPartitionOffsets(TopicPartitionOffset topicPartitionOffset)
     {
         _latestConsumedMetadataTpo[(TopicName: topicPartitionOffset.Topic, Partition: topicPartitionOffset.Partition)] = topicPartitionOffset.Offset;
@@ -79,7 +86,11 @@ public class OutputStateService
 
         if(_startupTimeLatestMetadataTpo.Count == 0) return false;
 
-        if(_startupTimeLatestMetadataTpo.All(KeyValuePair => KeyValuePair.Value == 0)) return true;
+        if(_startupTimeLatestMetadataTpo.All(KeyValuePair => KeyValuePair.Value == 0))
+        {
+            _ready = true;
+            return true;
+        }
 
         var latestConsumedOffsets = GetLastConsumedTopicPartitionOffsets();
 
