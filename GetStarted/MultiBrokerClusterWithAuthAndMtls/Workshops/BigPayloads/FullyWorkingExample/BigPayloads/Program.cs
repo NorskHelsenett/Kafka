@@ -142,11 +142,13 @@ app.MapGet("/retrievestream", async (HttpContext context, ChunkConsumer consumer
     // }
     // return contentStream;
 
+    byte[] buffer = new byte[1];
     return Results.Stream(streamWriterCallback: async (outStream) =>
         {
             await foreach (var b in consumer.GetBlobByMetadataAsync(blobChunksMetadata, correlationId, cancellationToken))
             {
-                await outStream.WriteAsync(new byte[]{b});
+                buffer[0] = b;
+                await outStream.WriteAsync(buffer);
             }
         }
     );
