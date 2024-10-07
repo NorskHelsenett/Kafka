@@ -135,12 +135,23 @@ app.MapGet("/retrievestream", async (HttpContext context, ChunkConsumer consumer
     context.Response.Headers.Append("X-Blob-Checksum", blobChunksMetadata.FinalChecksum);
     context.Response.Headers.Append("X-Blob-Checksum-Algorithm", "sha-256");
     // var contentStream = new MemoryStream();
-    // await foreach(var b in consumer.GetBlobByMetadataAsync(blobChunksMetadata, cancellationToken))
+    // await foreach(var b in consumer.GetBlobByMetadataAsync(blobChunksMetadata, correlationId, cancellationToken))
     // {
     //     contentStream.WriteByte(b);
     //     // context.Response.BodyWriter.Wr(b);
     // }
-    return Results.Ok(consumer.GetBlobByMetadataAsync(blobChunksMetadata, correlationId, cancellationToken));
+    // return contentStream;
+
+    return Results.Stream(streamWriterCallback: async (outStream) =>
+        {
+            await foreach (var b in consumer.GetBlobByMetadataAsync(blobChunksMetadata, correlationId, cancellationToken))
+            {
+                await outStream.WriteAsync(new byte[]{b});
+            }
+        }
+    );
+
+    // return Results.Ok(consumer.GetBlobByMetadataAsync(blobChunksMetadata, correlationId, cancellationToken));
 });
 
 /* ToDo:
