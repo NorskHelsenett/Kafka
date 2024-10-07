@@ -24,7 +24,7 @@ string GetBlobId(string nameOfOwner, string suppliedBlobName)
     // Get 2 different checksums of name to reduce odds of ID collision to near enough zero.
     // Use checksum of users name to avoid having to deal with weird characters and stuff.
     var ownerNameChecksum = Convert.ToHexString(System.IO.Hashing.Crc32.Hash(System.Text.Encoding.UTF8.GetBytes(nameOfOwner))).ToLowerInvariant();
-    var blobNameBytes = System.Text.Encoding.UTF8.GetBytes(nameOfOwner);
+    var blobNameBytes = System.Text.Encoding.UTF8.GetBytes(suppliedBlobName);
     var suppliedBlobNameFirstChecksum = Convert.ToHexString(System.IO.Hashing.Crc32.Hash(blobNameBytes)).ToLowerInvariant();
     var suppliedBlobNameSecondChecksum = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(blobNameBytes)).ToLowerInvariant();
     return $"{ownerNameChecksum}.{suppliedBlobNameFirstChecksum}.{suppliedBlobNameSecondChecksum}";
