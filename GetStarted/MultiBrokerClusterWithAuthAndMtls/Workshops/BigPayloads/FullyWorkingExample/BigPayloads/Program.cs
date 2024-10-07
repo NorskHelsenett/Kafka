@@ -4,6 +4,8 @@ using BigPayloads;
 var builder = WebApplication.CreateSlimBuilder(args);
 
 builder.Services.AddSingleton<ChunkingProducer>();
+builder.Services.AddScoped<ChunkConsumer>();
+        
 builder.Services.AddHostedService<ChunkedStreamConsumer>();
 builder.Services.AddSingleton<OutputStateService>();
 
@@ -90,6 +92,42 @@ app.MapPost("/register", async (HttpRequest req, Stream body,
     var produceSuccessful = await chunkingProducer.ProduceAsync(body, blobId: internalBlobId, ownerId: ownerId, callersBlobName: suppliedBlobName, cancellationToken);
     if(produceSuccessful) return Results.Ok();
     return Results.StatusCode(StatusCodes.Status500InternalServerError);
+});
+
+app.MapGet("/retrievestream", async (HttpContext context, ChunkedStreamConsumer consumer, OutputStateService stateService) =>
+{
+        var correlationId = System.Guid.NewGuid().ToString("D");
+    if(context.Request.Headers.TryGetValue("X-Correlation-Id", out Microsoft.Extensions.Primitives.StringValues headerCorrelationId))
+    {
+        if(!string.IsNullOrWhiteSpace(headerCorrelationId.ToString()))
+        {
+            correlationId = headerCorrelationId.ToString();
+        }
+    }
+    var suppliedBlobName = "";
+    if(context.Request.Headers.TryGetValue("X-Blob-Name", out Microsoft.Extensions.Primitives.StringValues headerSuppliedBlobName))
+    {
+        if(!string.IsNullOrWhiteSpace(headerSuppliedBlobName.ToString()))
+        {
+            suppliedBlobName = headerSuppliedBlobName.ToString();
+        }
+    }
+    var cancellationToken = context.Request.HttpContext.RequestAborted;
+
+    var ownerId = "ToDo";
+    var internalBlobId = GetBlobId(nameOfOwner: ownerId, suppliedBlobName: suppliedBlobName);
+
+    if(!stateService.TryRetrieve(internalBlobId, out var blobChunksMetadata))
+    {
+        return Results.NotFound();
+    }
+    // var contentStream = new MemoryStream();
+    // await foreach(var b in consumer.GetBlobByMetadataAsync(blobChunksMetadata, cancellationToken)){
+    //     contentStream.WriteByte(b);
+    //     // context.Response.BodyWriter.Wr(b);
+    // }
+    return Results.Ok(consumer.GetBlobByMetadataAsync(blobChunksMetadata, cancellationToken));
+
 });
 
 /* ToDo:

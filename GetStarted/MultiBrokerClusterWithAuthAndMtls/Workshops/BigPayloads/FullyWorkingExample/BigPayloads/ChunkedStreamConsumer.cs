@@ -99,7 +99,7 @@ public class ChunkedStreamConsumer: BackgroundService
         }
     }
 
-    private async System.Collections.Generic.IAsyncEnumerable<byte> GetBlobByMetadataAsync(BlobChunksMetadata metadata, CancellationToken cancellationToken)
+    public async IAsyncEnumerable<byte> GetBlobByMetadataAsync(BlobChunksMetadata metadata, CancellationToken cancellationToken)
     {
         _logger.LogDebug($"Got request to retrieve chunks for payload {metadata.BlobId}");
         var streamChecksum = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);

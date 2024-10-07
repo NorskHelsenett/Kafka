@@ -9,3 +9,7 @@ GET {{baseurl}}
 GET {{baseurl}}/ProduceExamplePayload
 
 ###
+GET {{baseurl}}/retrievestream
+X-Blob-Name: firstexample
+
+###
