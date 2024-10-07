@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Confluent.Kafka;
 using Confluent.Kafka.SyncOverAsync;
 using Confluent.SchemaRegistry.Serdes;
@@ -12,7 +13,7 @@ public class ChunkedStreamConsumer: BackgroundService
     private readonly OutputStateService _outputStateService;
     private readonly string _topicChunks;
     private readonly string _topicMetadata;
-    private readonly IConsumer<string, BlobChunk> _chunkConsumer;
+    private readonly IConsumer<string, BlobChunk?> _chunkConsumer;
 
     public ChunkedStreamConsumer(ILogger<ChunkedStreamConsumer> logger, IHostApplicationLifetime hostApplicationLifetime, OutputStateService outputStateService)
     {
@@ -84,6 +85,11 @@ public class ChunkedStreamConsumer: BackgroundService
                         var nextBlobPrintFriendly = System.Text.Encoding.UTF8.GetString(reassembled.ToArray());
                         _logger.LogInformation($"Blob {result.Message.Key}:\n=== BEGIN PAYLOAD ===\n{nextBlobPrintFriendly}\n=== END PAYLOAD ===");
                     }
+                    else
+                    {
+                        _logger.LogInformation($"Received tombstone for blob with id \"{result.Message.Key}\"");
+                        _outputStateService.Remove(result.Message.Key, "");
+                    }
                     _outputStateService.UpdateLastConsumedTopicPartitionOffsets(result.TopicPartitionOffset);
                 }
             }
@@ -99,7 +105,7 @@ public class ChunkedStreamConsumer: BackgroundService
         }
     }
 
-    public async IAsyncEnumerable<byte> GetBlobByMetadataAsync(BlobChunksMetadata metadata, CancellationToken cancellationToken)
+    public async IAsyncEnumerable<byte> GetBlobByMetadataAsync(BlobChunksMetadata metadata, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         _logger.LogDebug($"Got request to retrieve chunks for payload {metadata.BlobId}");
         var streamChecksum = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
@@ -123,7 +129,6 @@ public class ChunkedStreamConsumer: BackgroundService
         _chunkConsumer.Unassign();
         _chunkConsumer.Assign(chunkTopicPartitionOffsetsEarliest);
 
-        var consumedChunks = new Dictionary<ulong, BlobChunk>();
         ulong nextExpectedChunkNumber = 1;
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -188,31 +193,30 @@ public class ChunkedStreamConsumer: BackgroundService
         }
     }
 
-    private IConsumer<string, BlobChunksMetadata> GetChunkMetadataConsumer()
+    private IConsumer<string, BlobChunksMetadata?> GetChunkMetadataConsumer()
     {
-        return  new ConsumerBuilder<string, BlobChunksMetadata>(KafkaConfigBinder.GetConsumerConfig())
+        return  new ConsumerBuilder<string, BlobChunksMetadata?>(KafkaConfigBinder.GetConsumerConfig())
             .SetPartitionsAssignedHandler((c, partitions) =>
             {
                 // Always start at the beginning, only use cg for tracking liveliness and lag from the outside
                 return partitions.Select(tp => new TopicPartitionOffset(tp, Offset.Beginning));
             })
-            .SetValueDeserializer(new ProtobufDeserializer<BlobChunksMetadata>().AsSyncOverAsync())
+            .SetValueDeserializer(new ProtobufDeserializer<BlobChunksMetadata?>().AsSyncOverAsync())
             .SetErrorHandler((_, e) => _logger.LogError($"Error: {e.Reason}"))
             .Build();
     }
 
-    private IConsumer<string, BlobChunk> GetChunkConsumer()
+    private IConsumer<string, BlobChunk?> GetChunkConsumer()
     {
         var kafkaConfig = KafkaConfigBinder.GetConsumerConfig();
         kafkaConfig.GroupId = $"{kafkaConfig.GroupId}-chunks";
-        // var chunkConsumer = new ConsumerBuilder<string, BlobChunk>(kafkaConfig)
-        return  new ConsumerBuilder<string, BlobChunk>(kafkaConfig)
-            .SetValueDeserializer(new ProtobufDeserializer<BlobChunk>().AsSyncOverAsync())
+        return  new ConsumerBuilder<string, BlobChunk?>(kafkaConfig)
+            .SetValueDeserializer(new ProtobufDeserializer<BlobChunk?>().AsSyncOverAsync())
             .SetErrorHandler((_, e) => _logger.LogError($"Error: {e.Reason}"))
             .Build();
     }
 
-    private async Task SaveStartupTimeLastTopicPartitionOffsets(IConsumer<string, BlobChunksMetadata> consumer)
+    private async Task SaveStartupTimeLastTopicPartitionOffsets(IConsumer<string, BlobChunksMetadata?> consumer)
     {
         var partitions = await GetTopicPartitions(_topicMetadata);
         List<TopicPartitionOffset> highOffsetsAtStartupTime = [];

@@ -4,7 +4,7 @@ using Confluent.Kafka.SyncOverAsync;
 using Confluent.SchemaRegistry.Serdes;
 using KafkaBlobChunking;
 
-internal class ChunkConsumer
+public class ChunkConsumer
 {
     private readonly ILogger<ChunkConsumer> _logger;
     private string _topicChunks;
@@ -103,7 +103,7 @@ internal class ChunkConsumer
         _logger.LogTrace($"CorrelationId {correlationId} all chunks of blob with id \"{metadata.BlobId}\" successfully consumed (final checksum matches, and number of bytes is correct)");
     }
 
-    private IConsumer<string, BlobChunk> GetChunkConsumer(BlobChunksMetadata metadata)
+    private IConsumer<string, BlobChunk?> GetChunkConsumer(BlobChunksMetadata metadata)
     {
         var kafkaConfig = KafkaConfigBinder.GetConsumerConfig();
         kafkaConfig.GroupId = $"{kafkaConfig.GroupId}-{metadata.BlobId}-{Guid.NewGuid()}";
@@ -114,8 +114,8 @@ internal class ChunkConsumer
             .ToArray();
         _logger.LogDebug($"Earliest offsets: {System.Text.Json.JsonSerializer.Serialize(earliestOffsetsWithChunks)}");
         // var chunkConsumer = new ConsumerBuilder<string, BlobChunk>(kafkaConfig)
-        return new ConsumerBuilder<string, BlobChunk>(kafkaConfig)
-            .SetValueDeserializer(new ProtobufDeserializer<BlobChunk>().AsSyncOverAsync())
+        return new ConsumerBuilder<string, BlobChunk?>(kafkaConfig)
+            .SetValueDeserializer(new ProtobufDeserializer<BlobChunk?>().AsSyncOverAsync())
             .SetErrorHandler((_, e) => _logger.LogError($"Error: {e.Reason}"))
             .SetPartitionsAssignedHandler((_, _) => earliestOffsetsWithChunks)
             .Build();

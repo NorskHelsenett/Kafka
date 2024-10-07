@@ -78,7 +78,7 @@ public class ChunkingProducer
             CompleteBlobSchemaSubject = "You should use this!",
             CompleteBlobSchemaVersion = "And this too",
         };
-        var firstTimeNextChunkMessage = new Message<string, BlobChunk>
+        var firstTimeNextChunkMessage = new Message<string, BlobChunk?>
         {
             Key = firstTimeNextChunkKey,
             Value = firstTimeNextChunkPayload
@@ -127,7 +127,7 @@ public class ChunkingProducer
                     CompleteBlobSchemaSubject = "You should use this!",
                     CompleteBlobSchemaVersion = "And this too",
                 };
-                var nextChunkMessage = new Message<string, BlobChunk>
+                var nextChunkMessage = new Message<string, BlobChunk?>
                 {
                     Key = nextChunkKey,
                     Value = nextChunkPayload
@@ -175,12 +175,12 @@ public class ChunkingProducer
             BlobSchemaVersion = "The people who love semver haven't had the joys of rc versions",
             CorrelationId = correlationId,
         };
-        var metadataMessage = new Message<string, BlobChunksMetadata>
+        var metadataMessage = new Message<string, BlobChunksMetadata?>
         {
             Key = blobId,
             Value = metadataPayload
         };
-        var metadataProduceResult = await metadataProducer.ProduceAsync(_topicMetadata, metadataMessage);
+        var metadataProduceResult = await metadataProducer.ProduceAsync(_topicMetadata, metadataMessage, cancellationToken);
         if (metadataProduceResult.Status != PersistenceStatus.Persisted)
         {
             Console.WriteLine($"Failed when producing metadata for shipped payload with id {blobId}");
@@ -189,19 +189,61 @@ public class ChunkingProducer
         return true;
     }
 
-    private IProducer<string, BlobChunk> GetChunkProducer()
+    public async Task<bool> ProduceTombstones(BlobChunksMetadata blobMetadata, string correlationId, CancellationToken cancellationToken)
+    {
+        var allChunksTombstonedSuccessfully = true; // Do best effort of deleting remaining should 1 fail
+        var tombstoneChunksProducer = GetChunkProducer();
+        for (ulong i = 1; i < blobMetadata.TotalNumberOfChunks + 1; i++)
+        {
+            var nextChunkTombstone = new Message<string, BlobChunk?>
+            {
+                Key = $"{blobMetadata.BlobId}_{i}",
+                Value = null
+            };
+            var nextTombstoneProduceResult = await tombstoneChunksProducer.ProduceAsync(_topicChunks, nextChunkTombstone, cancellationToken);
+            if (nextTombstoneProduceResult.Status != PersistenceStatus.Persisted)
+            {
+                _logger.LogError($"CorrelationId \"{correlationId}\" failed to produce tombstone for chunk \"{i}\" of blob with id \"{blobMetadata.BlobId}\"");
+                allChunksTombstonedSuccessfully = false;
+            }
+        }
+        tombstoneChunksProducer.Flush(cancellationToken);
+
+        if (!allChunksTombstonedSuccessfully)
+        {
+            return false;
+        }
+        // Only delete metada if all chunks successfully tombstoned
+        var tombstoneMetadataProducer = GetChunkMetadataProducer();
+        var nextMetadaTombstone = new Message<string, BlobChunksMetadata?>
+        {
+            Key = blobMetadata.BlobId,
+            Value = null
+        };
+        var tombstoneMetadataResult = await tombstoneMetadataProducer.ProduceAsync(_topicMetadata, nextMetadaTombstone, cancellationToken);
+        if (tombstoneMetadataResult.Status != PersistenceStatus.Persisted)
+        {
+            _logger.LogError($"CorrelationId \"{correlationId}\" failed to produce tombstone for blob metadata for blob with id \"{blobMetadata.BlobId}\"");
+            return false;
+        }
+
+        tombstoneMetadataProducer.Flush(cancellationToken);
+        return true;
+    }
+
+    private IProducer<string, BlobChunk?> GetChunkProducer()
     {
         var schemaRegistry = new CachedSchemaRegistryClient(KafkaConfigBinder.GetSchemaRegistryConfig());
-        return  new ProducerBuilder<string, BlobChunk>(KafkaConfigBinder.GetProducerConfig())
-            .SetValueSerializer(new ProtobufSerializer<BlobChunk>(schemaRegistry, GetProtobufSerializerConfig()))
+        return  new ProducerBuilder<string, BlobChunk?>(KafkaConfigBinder.GetProducerConfig())
+            .SetValueSerializer(new ProtobufSerializer<BlobChunk?>(schemaRegistry, GetProtobufSerializerConfig()))
             .Build();
     }
 
-    private IProducer<string, BlobChunksMetadata> GetChunkMetadataProducer()
+    private IProducer<string, BlobChunksMetadata?> GetChunkMetadataProducer()
     {
         var schemaRegistry = new CachedSchemaRegistryClient(KafkaConfigBinder.GetSchemaRegistryConfig());
-        return  new ProducerBuilder<string, BlobChunksMetadata>(KafkaConfigBinder.GetProducerConfig())
-            .SetValueSerializer(new ProtobufSerializer<BlobChunksMetadata>(schemaRegistry, GetProtobufSerializerConfig()))
+        return  new ProducerBuilder<string, BlobChunksMetadata?>(KafkaConfigBinder.GetProducerConfig())
+            .SetValueSerializer(new ProtobufSerializer<BlobChunksMetadata?>(schemaRegistry, GetProtobufSerializerConfig()))
             .Build();
     }
 

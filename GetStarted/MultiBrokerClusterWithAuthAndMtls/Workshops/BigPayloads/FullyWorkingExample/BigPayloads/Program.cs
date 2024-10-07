@@ -63,7 +63,7 @@ app.MapGet("/ProduceExamplePayload", async (HttpRequest req, ChunkingProducer ch
     return Results.Ok($"Example payload produced!");
 });
 
-app.MapPost("/register", async (HttpRequest req, Stream body, ChunkingProducer chunkingProducer) =>
+app.MapPost("/store", async (HttpRequest req, Stream body, ChunkingProducer chunkingProducer) =>
 {
     var correlationId = System.Guid.NewGuid().ToString("D");
     if(req.Headers.TryGetValue("X-Correlation-Id", out Microsoft.Extensions.Primitives.StringValues headerCorrelationId))
@@ -96,7 +96,7 @@ app.MapPost("/register", async (HttpRequest req, Stream body, ChunkingProducer c
     return Results.StatusCode(StatusCodes.Status500InternalServerError);
 });
 
-app.MapGet("/retrievestream", async (HttpContext context, ChunkConsumer consumer, OutputStateService stateService) =>
+app.MapGet("/retrieve", async (HttpContext context, ChunkConsumer consumer, OutputStateService stateService) =>
 {
     var correlationId = System.Guid.NewGuid().ToString("D");
     if(context.Request.Headers.TryGetValue("X-Correlation-Id", out Microsoft.Extensions.Primitives.StringValues headerCorrelationId))
@@ -156,13 +156,50 @@ app.MapGet("/retrievestream", async (HttpContext context, ChunkConsumer consumer
     // return Results.Ok(consumer.GetBlobByMetadataAsync(blobChunksMetadata, correlationId, cancellationToken));
 });
 
-/* ToDo:
- * - Add submit custom payload endpoint
- *   - Figure out if specific format demanded, or just b64. Maybe try out file upload?
- * - Add retrieve all stored objects overview endpoint
- *   - Just store overview in dict
- * - Add retrieve individual blobs endpoint
- *   - This is point blob retrieval is done
- */
+app.MapPost("/remove", async (HttpContext context, ChunkingProducer chunkingProducer, OutputStateService stateService) =>
+{
+    var correlationId = System.Guid.NewGuid().ToString("D");
+    if(context.Request.Headers.TryGetValue("X-Correlation-Id", out Microsoft.Extensions.Primitives.StringValues headerCorrelationId))
+    {
+        if(!string.IsNullOrWhiteSpace(headerCorrelationId.ToString()))
+        {
+            correlationId = headerCorrelationId.ToString();
+        }
+    }
+    var suppliedBlobName = "";
+    if(context.Request.Headers.TryGetValue("X-Blob-Name", out Microsoft.Extensions.Primitives.StringValues headerSuppliedBlobName))
+    {
+        if(!string.IsNullOrWhiteSpace(headerSuppliedBlobName.ToString()))
+        {
+            suppliedBlobName = headerSuppliedBlobName.ToString();
+        }
+    }
+    var cancellationToken = context.Request.HttpContext.RequestAborted;
+
+    var ownerId = "ToDo";
+    var internalBlobId = GetBlobId(nameOfOwner: ownerId, suppliedBlobName: suppliedBlobName);
+
+    app.Logger.LogInformation($"CorrelationId {correlationId} Received request from \"{ownerId}\" to delete blob they named \"{suppliedBlobName}\" with internal blob ID \"{internalBlobId}\"");
+
+    context.Response.Headers.Append("X-Correlation-Id", correlationId);
+
+    if(!stateService.TryRetrieve(internalBlobId, out var blobChunksMetadata) || blobChunksMetadata == null)
+    {
+        app.Logger.LogInformation($"CorrelationId {correlationId} Received request from \"{ownerId}\" to delete blob they named \"{suppliedBlobName}\" with internal blob ID \"{internalBlobId}\" resulted in not found");
+        return Results.NotFound();
+    }
+
+    context.Response.Headers.Append("X-Correlation-Id", correlationId);
+    context.Response.Headers.Append("X-Deleted-Blob-Correlation-Id", blobChunksMetadata.CorrelationId);
+    context.Response.Headers.Append("X-Deleted-Blob-User-Supplied-Name", blobChunksMetadata.BlobName);
+    context.Response.Headers.Append("X-Deleted-Blob-Owner-Id", blobChunksMetadata.BlobOwnerId);
+
+    var deleteSuccess = await chunkingProducer.ProduceTombstones(blobChunksMetadata, correlationId, cancellationToken);
+    if (deleteSuccess)
+    {
+        return Results.Ok();
+    }
+    return Results.StatusCode(StatusCodes.Status500InternalServerError);
+});
 
 app.Run();

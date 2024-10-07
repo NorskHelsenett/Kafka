@@ -10,12 +10,17 @@ GET {{baseurl}}/ProduceExamplePayload
 
 ###
 
-GET {{baseurl}}/retrievestream
+GET {{baseurl}}/retrieve
 X-Blob-Name: ToDo: Example value for now
 
 ###
 
-POST {{baseurl}}/register
+POST {{baseurl}}/remove
+X-Blob-Name: ToDo: Example value for now
+
+###
+
+POST {{baseurl}}/store
 X-Blob-Name: sample/blob/name.whatevs
 
 Aachenosaurus Abelisaurus Abrosaurus Abydosaurus Acanthopholis Achillesaurus
@@ -69,7 +74,13 @@ Pachyspondylus, Minotaurasaurus Ornatotholus Thescelosaurus.
 
 ###
 
-GET {{baseurl}}/retrievestream
+GET {{baseurl}}/retrieve
+X-Blob-Name: sample/blob/name.whatevs
+
+###
+
+
+POST {{baseurl}}/remove
 X-Blob-Name: sample/blob/name.whatevs
 
 ###
