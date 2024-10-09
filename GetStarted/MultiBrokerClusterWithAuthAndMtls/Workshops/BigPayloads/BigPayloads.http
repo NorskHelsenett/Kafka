@@ -9,3 +9,78 @@ GET {{baseurl}}
 GET {{baseurl}}/ProduceExamplePayload
 
 ###
+
+GET {{baseurl}}/retrieve
+X-Blob-Name: ToDo: Example value for now
+
+###
+
+POST {{baseurl}}/remove
+X-Blob-Name: ToDo: Example value for now
+
+###
+
+POST {{baseurl}}/store
+X-Blob-Name: sample/blob/name.whatevs
+
+Aachenosaurus Abelisaurus Abrosaurus Abydosaurus Acanthopholis Achillesaurus
+Achillobator Acristavus, Apatodon Ostafrikasaurus Scleromochlus Koreanosaurus
+Hesperosaurus Delapparentia Gojirasaurus, Hypselorhachis Dasygnathus Glyptodontopelta
+Gryponyx Bonatitan Tyrannosaurus. Longisquama Coloradia Fukuisaurus Atlasaurus
+Peltosaurus Eocursor Secernosaurus Xenoceratops Eucnemesaurus, Dilong
+Zhuchengceratops Haya Manidens Nomingia Parksosaurus Luoyanggia, Serendipaceratops
+Lirainosaurus Kaijiangosaurus Teinurosaurus Galesaurus Triassolestes Dryptosauroides.
+Unaysaurus Jiangjunosaurus Rahona Zhuchengceratops Piatnitzkysaurus Atlantosaurus
+Panamericansaurus Xiaosaurus Graciliraptor Cristatusaurus, Morinosaurus Jeyawati
+Orodromeus Saurornithoides Dollodon Spondylosoma Spinostropheus Lamaceratops
+Futabasaurus, Cedarpelta Pectinodon Draconyx Hadrosaurus Datousaurus Archaeornis
+Peltosaurus Bambiraptor. Plateosaurus Achillesaurus Tianzhenosaurus Alvarezsaurus
+Ichthyovenator Lukousaurus Coloradia Luanchuanraptor, Spinostropheus Haplocheirus
+Agustinia Lambeosaurus Cathartesaura Dandakosaurus Zhuchengosaurus Basutodon,
+Xenotarsosaurus Oligosaurus Secernosaurus Dinheirosaurus Mapusaurus Europasaurus.
+Lusitanosaurus Brachytaenius Erlicosaurus Aucasaurus Poekilopleuron Zizhongosaurus
+Malawisaurus Pellegrinisaurus Morosaurus Sphaerotholus, Triceratops Deinocheirus
+Hypselorhachis Tomodon Leptorhynchos Amygdalodon Algoasaurus Piatnitzkysaurus,
+Segisaurus Olorotitan Gargoyleosaurus Campylodon Aegyptosaurus Jenghizkhan
+Claorhynchus Camarillasaurus. Arctosaurus Majungatholus Ceratosaurus Tochisaurus
+Dianchungosaurus Haya Paranthodon Kaatedocus Patagosaurus, Cruxicheiros
+Coloradisaurus Qiupalong Sahaliyania Lapparentosaurus Gracilisuchus Gresslyosaurus,
+Futabasaurus Epachthosaurus Valdosaurus Kayentavenator Protoavis Bonapartenykus
+Talenkauen.  Tienshanosaurus Protoavis Petrobrasaurus Alocodon Homalocephale Rapator
+Kangnasaurus Sauropelta Elachistosuchus Crichtonsaurus Macelognathus Eupodosaurus,
+Yaverlandia Griphornis Gwyneddosaurus Orodromeus Nanyangosaurus Leptoceratops Talos
+Heterodontosaurus Veterupristisaurus Yutyrannus. Sphenosuchus Apatodon Protohadros
+Claosaurus Janenschia Tawa Bainoceratops Cheneosaurus Citipati, Lamaceratops
+Brontomerus Albalophosaurus Torilion Tonganosaurus Epidexipteryx Augustia,
+Cryolophosaurus Pachyrhinosaurus Bienosaurus Atlantosaurus Palaeocursornis Bagaraatan
+Brachylophosaurus. Kerberosaurus Microhadrosaurus Tanystrosuchus Ohmdenosaurus
+Mochlodon Megaraptor Eomamenchisaurus Hypselorhachis Austrocheirus Zapalasaurus,
+Xixiposaurus Ganzhousaurus Jiangjunosaurus Opisthocoelicaudia Syntarsus Lagosuchus
+Yunnanosaurus Dravidosaurus Zhuchengceratops, Majungatholus Stegopelta Caseosaurus
+Vitakrisaurus Leaellynasaura Eoabelisaurus Brontomerus Sinornithosaurus. Iliosuchus
+Ornithosuchus Dyoplosaurus Scleromochlus Centrosaurus Claosaurus Basutodon
+Euronychodon Shixinggia Limusaurus Plateosaurus, Paluxysaurus Xenotarsosaurus
+Onychosaurus Australodocus Actiosaurus Crataeomus Sinocoelurus Elaphrosaurus
+Euskelosaurus, Orodromeus Narambuenatitan Hypsirophus Tyrannosaurus Nanshiungosaurus
+Delapparentia Protecovasaurus Dandakosaurus Chiayusaurus. Hulsanpes Nedcolbertia
+Linhenykus Xenoceratops Deltadromeus Aggiosaurus Protohadros, Edmontosaurus
+Bagaceratops Neuquensaurus Tomodon Bonitasaura Caenagnathus, Jiangjunosaurus
+Brachypodosaurus Paleosaurus Pachyspondylus Lufengosaurus. Antarctopelta Dasygnathus
+Piatnitzkysaurus Barapasaurus Jintasaurus Albertadromeus Alocodon Gobiceratops,
+Camarillasaurus Caenagnathus Thecocoelurus Velocisaurus Goyocephale Adeopapposaurus,
+Jingshanosaurus Bradycneme Sinosaurus Omeisaurus Atlasaurus Valdosaurus.
+Compsognathus Linhenykus Centrosaurus Leyesaurus Agustinia, Bahariasaurus Daxiatitan
+Pachyspondylus, Minotaurasaurus Ornatotholus Thescelosaurus.
+
+###
+
+GET {{baseurl}}/retrieve
+X-Blob-Name: sample/blob/name.whatevs
+
+###
+
+
+POST {{baseurl}}/remove
+X-Blob-Name: sample/blob/name.whatevs
+
+###

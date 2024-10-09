@@ -5,9 +5,9 @@ public static class KafkaTopicCreation
 {
     public static async Task CreateTopicsAsync()
     {
-        var topicNameChunksTopic = Environment.GetEnvironmentVariable(BIG_PAYLOADS_CHUNKS_TOPIC);
+        var topicNameChunksTopic = Environment.GetEnvironmentVariable(BIG_PAYLOADS_CHUNKS_TOPIC) ?? throw new Exception($"Environment variable for chunks topic name {BIG_PAYLOADS_CHUNKS_TOPIC} myst be supplied");
         await TryCreateTopicAsync(topicNameChunksTopic);
-        var topicNameMetadataTopic = Environment.GetEnvironmentVariable(BIG_PAYLOADS_METADATA_TOPIC);
+        var topicNameMetadataTopic = Environment.GetEnvironmentVariable(BIG_PAYLOADS_METADATA_TOPIC) ?? throw new Exception($"Environment variable for blob metadata topic name {BIG_PAYLOADS_METADATA_TOPIC} myst be supplied");;
         await TryCreateTopicAsync(topicNameMetadataTopic);
     }
 
@@ -27,7 +27,7 @@ public static class KafkaTopicCreation
                          NumPartitions = -1,
                          Configs = new Dictionary<string, string>
                          {
-                            { "cleanup.policy", "compact" },
+                            { "cleanup.policy", "compact,delete" },
                             { "retention.bytes", "-1" },
                             { "retention.ms", "-1" },
                             { "min.compaction.lag.ms", $"{TimeSpan.FromMinutes(15).TotalMilliseconds}" },

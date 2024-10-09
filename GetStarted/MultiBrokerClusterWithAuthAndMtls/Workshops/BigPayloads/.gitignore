@@ -1,0 +1,5 @@
+PostFileResponse.txt
+PostFileError.txt
+ExampleFileOutput.txt
+ExampleFileRetrievalError.txt
+**/*.sln

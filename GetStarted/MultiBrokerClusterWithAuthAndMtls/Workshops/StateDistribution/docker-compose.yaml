@@ -48,7 +48,7 @@ services:
     healthcheck:
       # Can be commented out to use the check embedded in the image. However, due to how compose works, checking for if we are ready is what we want
       test: [ "CMD", "dotnet", "/HealthChecker/HealthChecker.dll", "--", "http://localhost:8080/healthz/ready" ]
-      start_period: "5s"
+      start_period: "8s"
       interval: "60s"
       timeout: "1s"
       retries: 20

@@ -30,6 +30,7 @@ services:
       # App config
       BIG_PAYLOADS_CHUNKS_TOPIC: "workshop-big-payloads-chunks"
       BIG_PAYLOADS_METADATA_TOPIC: "workshop-big-payloads-metadata"
+      BIG_PAYLOADS_CHUNK_PAYLOAD_SIZE_BYTES: "256"
 
       # kafkal config
       KAFKA_BOOTSTRAP_SERVERS: "broker1:9092,broker2:9092,broker3:9092"
@@ -43,3 +44,10 @@ services:
       KAFKA_ENABLE_AUTO_OFFSET_STORE: "true"
       KAFKA_AUTO_OFFSET_RESET: "Earliest"
       KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8080/apis/ccompat/v7"
+    healthcheck:
+      # Can be commented out to use the check embedded in the image. However, due to how compose works, checking for if we are ready is what we want
+      test: [ "CMD", "dotnet", "/HealthChecker/HealthChecker.dll", "--", "http://localhost:8080/healthz/ready" ]
+      start_period: "5s"
+      interval: "60s"
+      timeout: "1s"
+      retries: 20
