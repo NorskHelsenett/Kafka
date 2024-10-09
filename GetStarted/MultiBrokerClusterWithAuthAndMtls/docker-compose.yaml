@@ -1085,7 +1085,7 @@ services:
     build:
       context: .
       dockerfile_inline: |
-        FROM python:3
+        FROM python:3.12
         RUN pip install confluent-kafka \
           && pip install jsonschema \
           && pip install requests \
@@ -1273,7 +1273,7 @@ services:
     build:
       context: .
       dockerfile_inline: |
-        FROM python:3
+        FROM python:3.12
         RUN pip install confluent-kafka \
           && pip install jsonschema \
           && pip install requests \
