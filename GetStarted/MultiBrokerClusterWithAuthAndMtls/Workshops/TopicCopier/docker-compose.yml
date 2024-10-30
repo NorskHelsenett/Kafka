@@ -1,0 +1,40 @@
+networks:
+  apps_network:
+    name: apps_network
+    external: true
+
+services:
+  topic-copier:
+    image: localhost/topic-copier:latest
+    build:
+      context: ./FullyWorkingExample/
+      dockerfile: Dockerfile
+    user: 1000:1001
+    networks:
+      - apps_network
+    volumes:
+      - ../../ContainerData/GeneratedCerts/Kafka/Users/admin:/kafka/secrets
+    environment:
+      ASPNETCORE_HTTP_PORTS: 8080
+      ASPNETCORE_ENVIRONMENT: "Development"
+
+      KafkaConfigSource__BootstrapServers: "broker1"
+      KafkaConfigSource__OriginalTopicHasSchema: "true"
+      KafkaConfigSource__SourceTopic: "topic-copier-source"
+      KafkaConfigSource__GroupId: "topic-copier-group"
+      KafkaConfigSource__SecurityProtocol: "ssl"
+      KafkaConfigSource__SslKeyPemLocation: "/kafka/secrets/acl-principal.key"
+      KafkaConfigSource__SslCaPemLocation: "/kafka/secrets/ca.crt"
+      KafkaConfigSource__SslCertificatePemLocation: "/kafka/secrets/acl-principal.crt"
+      KafkaConfigSource__SslKeyPasswordLocation: "/kafka/secrets/password.txt"
+      KafkaConfigSource__MaxMessageBytes: "1048588"
+
+      KafkaConfigDestination__BootstrapServers: "broker1"
+      KafkaConfigDestination__SchemaRegistryAddress: "http://schema-registry:8080/apis/ccompat/v7"
+      KafkaConfigDestination__DestinationTopic: "topic-copier-destination"
+      KafkaConfigDestination__SecurityProtocol: "ssl"
+      KafkaConfigDestination__SslKeyPemLocation: "/kafka/secrets/acl-principal.key"
+      KafkaConfigDestination__SslCaPemLocation: "/kafka/secrets/ca.crt"
+      KafkaConfigDestination__SslCertificatePemLocation: "/kafka/secrets/acl-principal.crt"
+      KafkaConfigDestination__SslKeyPasswordLocation: "/kafka/secrets/password.txt"
+      KafkaConfigDestination__MaxMessageBytes: "1048588"
