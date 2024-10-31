@@ -390,6 +390,12 @@ services:
             -aes256 \
             -out $$USER_OUTPUT_DIR/acl-principal.key $$RSA_BITS
 
+          echo "Creating unencrypted copy of private key"
+          openssl rsa \
+            -in $$USER_OUTPUT_DIR/acl-principal.key \
+            -passin pass:$$USER_PASSWORD \
+            -out $$USER_OUTPUT_DIR/acl-principal.unencrypted.key
+
           echo "Creating certificate signing request config for $$USER_CN certificate"
           printf '%s\n' \
             '[req]' \
