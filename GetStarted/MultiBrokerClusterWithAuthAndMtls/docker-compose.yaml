@@ -1,30 +1,3 @@
-# ToDo:
-# - Replace this list of ToDo's with a readme?
-#   - Mention where to find the kafka UI (localhost:8081)
-#   - Say you can connect to the brokers from outside contexts by attaching to the "apps_network". See example of how in sibling docker compose file.
-#   - Outline how to make more and test with other credentials?
-#   - Say that your life can be easier locally if the containers run with the same user as you, because you can then access all the generated files and anything else without having to mess around with changing ownership or permissions. The important thing is that the user Ids are the same for all the services needing to use the generated files, if you don't want to extend the scripts. You can find your own user ID:Group by running `$(id -u):$(id -g)`, or you can use `${UID}:${GROUPS}` directly as the value in the `user` filed (e.g. `services.broker1.user: ${UID}:${GROUPS}`).
-#   - Highlight some important flags:
-#     - `services.set-up-container-mount-area.environment.RESET_EVERYTHING`
-#       - Removes all the stored folders and starts fresh if you set it to `true`.
-#     - `services.create-certificate-authority.environment.RECREATE_IF_EXISTS`
-#       - Should you want to recreate the CA, set this to `true`. Note that this won't trigger the issued certificates being recreated.
-#     - `services.create-certificates.environment.RECREATE_IF_EXISTS`
-#       - Should you want to recreate the Certificates, set this to `true`.
-#     - `services.create-certificates.command.USE_DEMO_PASSWORDS`
-#       - If you want to use the script to make random password rather than fixed demo values, set this to anything else than `true`.
-#     - `services.create-certificates.command.RSA_BITS`
-#       - Default to 1024, because 4096 is noticeably slow to humans, and default mode here is demo. You probably want other values in prod. If you change this, you probably also need to change the value for the CA (`services.create-certificate-authority.command.RSA_BITS`).
-#     - `services.create-certificates.command.ENV_NAME`
-#       - Helpfully makes a lot of the files contain the envrionment name, so that if you create multiple environments to experiment with running things in parallell it becomes easier to tell appart what files come from where.
-#     - `services.create-certificates.command.VALIDITY_DAYS`
-#       - Controlls how long the issued credentials are valid for. Note that if this is shorter than the validity of the CA, the crendentials will become invalid at the point in time the CA expires.
-#   - Mention that while this gives you a lot, you still need to do a lot before calling yourself production ready
-#     - Set up log shipping and handling
-#     - Proper storage solution for the Schema registry
-#     - Consider kafka UI having/being an admin user, and the existence of admin users in general
-#     - Now that we're half way in 2024, you might want to do this with kubernetes instead
-
 networks:
   controllers_network:
     ipam:
