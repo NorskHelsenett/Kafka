@@ -818,7 +818,7 @@ services:
             --replication-factor '3' \
             --partitions '1' \
             --config 'cleanup.policy=delete' \
-            --config 'max.message.bytes=1000012' \
+            --config 'max.message.bytes=1048588' \
             --config 'min.insync.replicas=2' \
             --config 'retention.bytes=-1' \
             --config 'retention.ms=-1'

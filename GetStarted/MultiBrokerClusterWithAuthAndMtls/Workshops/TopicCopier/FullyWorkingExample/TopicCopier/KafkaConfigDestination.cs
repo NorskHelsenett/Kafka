@@ -14,5 +14,5 @@ public record KafkaConfigDestination
     public string? SslCertificatePemLocation { get; init; }
     public string? SslKeyPasswordLocation { get; init; }
 
-    public int MaxMessageBytes { get; init; } = 1000012;
+    public int MaxMessageBytes { get; init; } = 1048588;
 }
