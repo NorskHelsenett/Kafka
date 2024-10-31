@@ -145,7 +145,7 @@ services:
 
         echo '================ Done Creating CA ================================='
 
-  create-certificates:
+  create-certificates-for-brokers:
     image: localhost/cert-creator:latest
     user: 1000:1001
     build:
@@ -160,7 +160,7 @@ services:
             && apt-get install -y coreutils \
             && apt-get install -y tar
         # `apt-get install -y base64` is replaced with `apt-get install -y coreutils`
-    container_name: create-certificates
+    container_name: create-certificates-for-brokers
     depends_on:
       create-certificate-authority:
         required: true
@@ -175,7 +175,7 @@ services:
       - '-c'
       - |
         if [ -f /ContainerData/GeneratedCerts/Kafka/Brokers/broker1/acl-principal.pfx ] && [ ''$$RECREATE_IF_EXISTS != 'true' ]; then
-          echo 'Because Broker1s CRT file exists assuming that all other certs also exist, and recreation not set to true, exiting without creating any certs'
+          echo 'Because Broker1s PFX file exists assuming that all other broker certs also exist, and recreation not set to true, exiting without creating any certs'
           exit 0
         fi
         echo '================ Setting Up Variables ============================='
@@ -368,6 +368,240 @@ services:
           --ip_apps_network_v4 "172.80.80.13" \
           --ip_apps_network_v6 "2001:8080:8080::13"
 
+  broker1:
+    image: apache/kafka:3.8.0
+    hostname: broker1
+    container_name: broker1
+    user: 1000:1001
+    depends_on:
+      create-certificates-for-brokers:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    networks:
+      brokers_network:
+        ipv4_address: 172.90.92.11
+        ipv6_address: 2001:9092:9092::11
+      controllers_network:
+        ipv4_address: 172.21.82.21
+        ipv6_address: 2001:2181:2181::21
+      apps_network:
+        ipv4_address: 172.80.80.11
+        ipv6_address: 2001:8080:8080::11
+    ports:
+      - "9094:9094"
+    environment:
+      # Config docs: https://kafka.apache.org/documentation/
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_NODE_ID: 1
+      CLUSTER_ID: "bHcwZ3c3a2FqbjFxZHN3OX" # 16 bytes of a base64-encoded UUID. Practically 22 b64 characters. Shell: `uuidgen --time | tr -d '-' | base64 | cut -b 1-22`. JavaScript: `btoa((Math.random()*1e64).toString(36)).substring(0,22)`
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@broker1:2181,2@broker2:2181,3@broker3:2181"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "BROKER"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "BROKER:SSL, CONTROLLER:SSL, APPS:SSL, EXTERNAL_APPS:SSL"
+      KAFKA_LISTENERS: "BROKER://0.0.0.0:9091,CONTROLLER://0.0.0.0:2181,APPS://0.0.0.0:9092,EXTERNAL_APPS://0.0.0.0:9094"
+      KAFKA_ADVERTISED_LISTENERS: "BROKER://172.90.92.11:9091,APPS://172.80.80.11:9092,EXTERNAL_APPS://localhost:9094"
+
+      KAFKA_SSL_CLIENT_AUTH: "required"
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+
+      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_SSL_KEYSTORE_LOCATION: /kafka/secrets/acl-principal.pfx
+      KAFKA_SSL_KEYSTORE_PASSWORD: "Broker_demo_password"
+      KAFKA_SSL_KEY_PASSWORD: "Broker_demo_password"
+
+      KAFKA_SSL_TRUSTSTORE_TYPE: PEM
+      KAFKA_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/ca.crt"
+
+      KAFKA_AUTHORIZER_CLASS_NAME: "org.apache.kafka.metadata.authorizer.StandardAuthorizer"
+      KAFKA_LOG4J_ROOT_LOGLEVEL: "WARN"
+      KAFKA_SUPER_USERS: "User:CN=broker;User:CN=kafka-ui;User:CN=admin"
+
+      KAFKA_NUM_PARTITIONS: "1" # Default number of partitions for new topics
+      KAFKA_DEFAULT_REPLICATION_FACTOR: "1" # Default replication factor for new topics
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1" # Set to 1 to allow local cluster with 1 node
+      KAFKA_LOG_DIR: "/var/lib/kafka/data" # Where the data is stored
+    healthcheck:
+      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && _JAVA_OPTIONS="-Xmx32M -Xms32M" /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server broker1:9092 --config ./bootstrap.conf || exit 1']
+      start_period: "7s"
+      interval: "5s"
+      timeout: "10s"
+      retries: 10
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Brokers/broker1:/kafka/secrets
+      - ./ContainerData/Kafka/Brokers/Broker1/Data:/var/lib/kafka/data
+
+  broker2:
+    image: apache/kafka:3.8.0
+    hostname: broker2
+    container_name: broker2
+    user: 1000:1001
+    depends_on:
+      create-certificates-for-brokers:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    networks:
+      brokers_network:
+        ipv4_address: 172.90.92.12
+        ipv6_address: 2001:9092:9092::12
+      controllers_network:
+        ipv4_address: 172.21.82.22
+        ipv6_address: 2001:2181:2181::22
+      apps_network:
+        ipv4_address: 172.80.80.12
+        ipv6_address: 2001:8080:8080::12
+    ports:
+      - "9095:9095"
+    environment:
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_NODE_ID: 2
+      CLUSTER_ID: "bHcwZ3c3a2FqbjFxZHN3OX"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@broker1:2181,2@broker2:2181,3@broker3:2181"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "BROKER"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "BROKER:SSL, CONTROLLER:SSL, APPS:SSL, EXTERNAL_APPS:SSL"
+      KAFKA_LISTENERS: "BROKER://0.0.0.0:9091,CONTROLLER://0.0.0.0:2181,APPS://0.0.0.0:9092,EXTERNAL_APPS://0.0.0.0:9095"
+      KAFKA_ADVERTISED_LISTENERS: "BROKER://172.90.92.12:9091,APPS://172.80.80.12:9092,EXTERNAL_APPS://localhost:9095"
+
+      KAFKA_SSL_CLIENT_AUTH: "required"
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+
+      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_SSL_KEYSTORE_LOCATION: /kafka/secrets/acl-principal.pfx
+      KAFKA_SSL_KEYSTORE_PASSWORD: "Broker_demo_password"
+      KAFKA_SSL_KEY_PASSWORD: "Broker_demo_password"
+
+      KAFKA_SSL_TRUSTSTORE_TYPE: PEM
+      KAFKA_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/ca.crt"
+
+      KAFKA_AUTHORIZER_CLASS_NAME: "org.apache.kafka.metadata.authorizer.StandardAuthorizer"
+      KAFKA_LOG4J_ROOT_LOGLEVEL: "WARN"
+      KAFKA_SUPER_USERS: "User:CN=broker;User:CN=kafka-ui;User:CN=admin"
+
+      KAFKA_NUM_PARTITIONS: "1"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: "1"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_LOG_DIR: "/var/lib/kafka/data"
+    healthcheck:
+      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && _JAVA_OPTIONS="-Xmx32M -Xms32M" /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server broker2:9092 --config ./bootstrap.conf || exit 1']
+      start_period: "7s"
+      interval: "5s"
+      timeout: "10s"
+      retries: 10
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Brokers/broker2:/kafka/secrets
+      - ./ContainerData/Kafka/Brokers/Broker2/Data:/var/lib/kafka/data
+
+  broker3:
+    image: apache/kafka:3.8.0
+    hostname: broker3
+    container_name: broker3
+    user: 1000:1001
+    depends_on:
+      create-certificates-for-brokers:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    networks:
+      brokers_network:
+        ipv4_address: 172.90.92.13
+        ipv6_address: 2001:9092:9092::13
+      controllers_network:
+        ipv4_address: 172.21.82.23
+        ipv6_address: 2001:2181:2181::23
+      apps_network:
+        ipv4_address: 172.80.80.13
+        ipv6_address: 2001:8080:8080::13
+    ports:
+      - "9096:9096"
+    environment:
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_NODE_ID: 3
+      CLUSTER_ID: "bHcwZ3c3a2FqbjFxZHN3OX"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@broker1:2181,2@broker2:2181,3@broker3:2181"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "BROKER"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "BROKER:SSL, CONTROLLER:SSL, APPS:SSL, EXTERNAL_APPS:SSL"
+      KAFKA_LISTENERS: "BROKER://0.0.0.0:9091,CONTROLLER://0.0.0.0:2181,APPS://0.0.0.0:9092,EXTERNAL_APPS://0.0.0.0:9096"
+      KAFKA_ADVERTISED_LISTENERS: "BROKER://172.90.92.13:9091,APPS://172.80.80.13:9092,EXTERNAL_APPS://localhost:9096"
+
+      KAFKA_SSL_CLIENT_AUTH: "required"
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+
+      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_SSL_KEYSTORE_LOCATION: /kafka/secrets/acl-principal.pfx
+      KAFKA_SSL_KEYSTORE_PASSWORD: "Broker_demo_password"
+      KAFKA_SSL_KEY_PASSWORD: "Broker_demo_password"
+
+      KAFKA_SSL_TRUSTSTORE_TYPE: PEM
+      KAFKA_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/ca.crt"
+
+      KAFKA_AUTHORIZER_CLASS_NAME: "org.apache.kafka.metadata.authorizer.StandardAuthorizer"
+      KAFKA_LOG4J_ROOT_LOGLEVEL: "WARN"
+      KAFKA_SUPER_USERS: "User:CN=broker;User:CN=kafka-ui;User:CN=admin"
+
+      KAFKA_NUM_PARTITIONS: "1"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: "1"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_LOG_DIR: "/var/lib/kafka/data"
+    healthcheck:
+      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && _JAVA_OPTIONS="-Xmx32M -Xms32M" /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server broker3:9092 --config ./bootstrap.conf || exit 1']
+      start_period: "7s"
+      interval: "5s"
+      timeout: "10s"
+      retries: 10
+    volumes:
+      - ./ContainerData/GeneratedCerts/Kafka/Brokers/broker3:/kafka/secrets
+      - ./ContainerData/Kafka/Brokers/Broker3/Data:/var/lib/kafka/data
+
+  create-certificates-for-users:
+    image: localhost/cert-creator:latest
+    user: 1000:1001
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM debian:stable-slim
+
+        RUN apt-get update \
+            && apt-get install -y curl \
+            && apt-get install -y sed \
+            && apt-get install -y openssl \
+            && apt-get install -y coreutils \
+            && apt-get install -y tar
+        # `apt-get install -y base64` is replaced with `apt-get install -y coreutils`
+    container_name: create-certificates-for-users
+    depends_on:
+      create-certificate-authority:
+        required: true
+        restart: false
+        condition: service_completed_successfully
+    volumes:
+      - ./ContainerData:/ContainerData
+    environment:
+      RECREATE_IF_EXISTS: "false"
+    entrypoint:
+      - '/bin/bash'
+      - '-c'
+      - |
+        if [ -f /ContainerData/GeneratedCerts/Kafka/Users/admin/acl-principal.pfx ] && [ ''$$RECREATE_IF_EXISTS != 'true' ]; then
+          echo 'Admin users pfx file exists assuming that all other user certs also exist, and recreation not set to true, exiting without creating any certs'
+          exit 0
+        fi
+        echo '================ Setting Up Variables ============================='
+        VALIDITY_DAYS='365'
+        # Default to 1024, because 4096 is noticeably slow to humans, and default mode here is demo
+        RSA_BITS='1024'
+        CERT_PASSWORD_LENGTH='32'
+        USE_DEMO_PASSWORDS='true'
+
+        CA_PASSWORD_PATH='/ContainerData/GeneratedCerts/CertificateAuthority/password.txt'
+        CA_KEY_PATH='/ContainerData/GeneratedCerts/CertificateAuthority/ca.key'
+        CA_CRT_FILE_NAME='ca.crt'
+        CA_CRT_PATH='/ContainerData/GeneratedCerts/CertificateAuthority/'$$CA_CRT_FILE_NAME
+
+        echo '================ Done Setting Up Variables ========================'
+
         function CreateUserCerts {
           local USER_CN=$$1
           local USER_OUTPUT_DIR="/ContainerData/GeneratedCerts/Kafka/Users/$$1"
@@ -464,193 +698,6 @@ services:
         CreateUserCerts "protobuf-user"
         CreateUserCerts "json-user"
 
-  broker1:
-    image: apache/kafka:3.8.0
-    hostname: broker1
-    container_name: broker1
-    user: 1000:1001
-    depends_on:
-      create-certificates:
-        required: true
-        restart: false
-        condition: service_completed_successfully
-    networks:
-      brokers_network:
-        ipv4_address: 172.90.92.11
-        ipv6_address: 2001:9092:9092::11
-      controllers_network:
-        ipv4_address: 172.21.82.21
-        ipv6_address: 2001:2181:2181::21
-      apps_network:
-        ipv4_address: 172.80.80.11
-        ipv6_address: 2001:8080:8080::11
-    ports:
-      - "9094:9094"
-    environment:
-      # Config docs: https://kafka.apache.org/documentation/
-      KAFKA_PROCESS_ROLES: "broker,controller"
-      KAFKA_NODE_ID: 1
-      CLUSTER_ID: "bHcwZ3c3a2FqbjFxZHN3OX" # 16 bytes of a base64-encoded UUID. Practically 22 b64 characters. Shell: `uuidgen --time | tr -d '-' | base64 | cut -b 1-22`. JavaScript: `btoa((Math.random()*1e64).toString(36)).substring(0,22)`
-      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@broker1:2181,2@broker2:2181,3@broker3:2181"
-      KAFKA_INTER_BROKER_LISTENER_NAME: "BROKER"
-      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "BROKER:SSL, CONTROLLER:SSL, APPS:SSL, EXTERNAL_APPS:SSL"
-      KAFKA_LISTENERS: "BROKER://0.0.0.0:9091,CONTROLLER://0.0.0.0:2181,APPS://0.0.0.0:9092,EXTERNAL_APPS://0.0.0.0:9094"
-      KAFKA_ADVERTISED_LISTENERS: "BROKER://172.90.92.11:9091,APPS://172.80.80.11:9092,EXTERNAL_APPS://localhost:9094"
-
-      KAFKA_SSL_CLIENT_AUTH: "required"
-      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
-
-      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
-      KAFKA_SSL_KEYSTORE_LOCATION: /kafka/secrets/acl-principal.pfx
-      KAFKA_SSL_KEYSTORE_PASSWORD: "Broker_demo_password"
-      KAFKA_SSL_KEY_PASSWORD: "Broker_demo_password"
-
-      KAFKA_SSL_TRUSTSTORE_TYPE: PEM
-      KAFKA_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/ca.crt"
-
-      KAFKA_AUTHORIZER_CLASS_NAME: "org.apache.kafka.metadata.authorizer.StandardAuthorizer"
-      KAFKA_LOG4J_ROOT_LOGLEVEL: "WARN"
-      KAFKA_SUPER_USERS: "User:CN=broker;User:CN=kafka-ui;User:CN=admin"
-
-      KAFKA_NUM_PARTITIONS: "1" # Default number of partitions for new topics
-      KAFKA_DEFAULT_REPLICATION_FACTOR: "1" # Default replication factor for new topics
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1" # Set to 1 to allow local cluster with 1 node
-      KAFKA_LOG_DIR: "/var/lib/kafka/data" # Where the data is stored
-    healthcheck:
-      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && _JAVA_OPTIONS="-Xmx32M -Xms32M" /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server broker1:9092 --config ./bootstrap.conf || exit 1']
-      start_period: "7s"
-      interval: "5s"
-      timeout: "10s"
-      retries: 10
-    volumes:
-      - ./ContainerData/GeneratedCerts/Kafka/Brokers/broker1:/kafka/secrets
-      - ./ContainerData/Kafka/Brokers/Broker1/Data:/var/lib/kafka/data
-
-  broker2:
-    image: apache/kafka:3.8.0
-    hostname: broker2
-    container_name: broker2
-    user: 1000:1001
-    depends_on:
-      create-certificates:
-        required: true
-        restart: false
-        condition: service_completed_successfully
-    networks:
-      brokers_network:
-        ipv4_address: 172.90.92.12
-        ipv6_address: 2001:9092:9092::12
-      controllers_network:
-        ipv4_address: 172.21.82.22
-        ipv6_address: 2001:2181:2181::22
-      apps_network:
-        ipv4_address: 172.80.80.12
-        ipv6_address: 2001:8080:8080::12
-    ports:
-      - "9095:9095"
-    environment:
-      KAFKA_PROCESS_ROLES: "broker,controller"
-      KAFKA_NODE_ID: 2
-      CLUSTER_ID: "bHcwZ3c3a2FqbjFxZHN3OX"
-      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@broker1:2181,2@broker2:2181,3@broker3:2181"
-      KAFKA_INTER_BROKER_LISTENER_NAME: "BROKER"
-      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "BROKER:SSL, CONTROLLER:SSL, APPS:SSL, EXTERNAL_APPS:SSL"
-      KAFKA_LISTENERS: "BROKER://0.0.0.0:9091,CONTROLLER://0.0.0.0:2181,APPS://0.0.0.0:9092,EXTERNAL_APPS://0.0.0.0:9095"
-      KAFKA_ADVERTISED_LISTENERS: "BROKER://172.90.92.12:9091,APPS://172.80.80.12:9092,EXTERNAL_APPS://localhost:9095"
-
-      KAFKA_SSL_CLIENT_AUTH: "required"
-      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
-
-      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
-      KAFKA_SSL_KEYSTORE_LOCATION: /kafka/secrets/acl-principal.pfx
-      KAFKA_SSL_KEYSTORE_PASSWORD: "Broker_demo_password"
-      KAFKA_SSL_KEY_PASSWORD: "Broker_demo_password"
-
-      KAFKA_SSL_TRUSTSTORE_TYPE: PEM
-      KAFKA_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/ca.crt"
-
-      KAFKA_AUTHORIZER_CLASS_NAME: "org.apache.kafka.metadata.authorizer.StandardAuthorizer"
-      KAFKA_LOG4J_ROOT_LOGLEVEL: "WARN"
-      KAFKA_SUPER_USERS: "User:CN=broker;User:CN=kafka-ui;User:CN=admin"
-
-      KAFKA_NUM_PARTITIONS: "1"
-      KAFKA_DEFAULT_REPLICATION_FACTOR: "1"
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
-      KAFKA_LOG_DIR: "/var/lib/kafka/data"
-    healthcheck:
-      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && _JAVA_OPTIONS="-Xmx32M -Xms32M" /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server broker2:9092 --config ./bootstrap.conf || exit 1']
-      start_period: "7s"
-      interval: "5s"
-      timeout: "10s"
-      retries: 10
-    volumes:
-      - ./ContainerData/GeneratedCerts/Kafka/Brokers/broker2:/kafka/secrets
-      - ./ContainerData/Kafka/Brokers/Broker2/Data:/var/lib/kafka/data
-
-  broker3:
-    image: apache/kafka:3.8.0
-    hostname: broker3
-    container_name: broker3
-    user: 1000:1001
-    depends_on:
-      create-certificates:
-        required: true
-        restart: false
-        condition: service_completed_successfully
-    networks:
-      brokers_network:
-        ipv4_address: 172.90.92.13
-        ipv6_address: 2001:9092:9092::13
-      controllers_network:
-        ipv4_address: 172.21.82.23
-        ipv6_address: 2001:2181:2181::23
-      apps_network:
-        ipv4_address: 172.80.80.13
-        ipv6_address: 2001:8080:8080::13
-    ports:
-      - "9096:9096"
-    environment:
-      KAFKA_PROCESS_ROLES: "broker,controller"
-      KAFKA_NODE_ID: 3
-      CLUSTER_ID: "bHcwZ3c3a2FqbjFxZHN3OX"
-      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@broker1:2181,2@broker2:2181,3@broker3:2181"
-      KAFKA_INTER_BROKER_LISTENER_NAME: "BROKER"
-      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "BROKER:SSL, CONTROLLER:SSL, APPS:SSL, EXTERNAL_APPS:SSL"
-      KAFKA_LISTENERS: "BROKER://0.0.0.0:9091,CONTROLLER://0.0.0.0:2181,APPS://0.0.0.0:9092,EXTERNAL_APPS://0.0.0.0:9096"
-      KAFKA_ADVERTISED_LISTENERS: "BROKER://172.90.92.13:9091,APPS://172.80.80.13:9092,EXTERNAL_APPS://localhost:9096"
-
-      KAFKA_SSL_CLIENT_AUTH: "required"
-      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
-
-      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
-      KAFKA_SSL_KEYSTORE_LOCATION: /kafka/secrets/acl-principal.pfx
-      KAFKA_SSL_KEYSTORE_PASSWORD: "Broker_demo_password"
-      KAFKA_SSL_KEY_PASSWORD: "Broker_demo_password"
-
-      KAFKA_SSL_TRUSTSTORE_TYPE: PEM
-      KAFKA_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/ca.crt"
-
-      KAFKA_AUTHORIZER_CLASS_NAME: "org.apache.kafka.metadata.authorizer.StandardAuthorizer"
-      KAFKA_LOG4J_ROOT_LOGLEVEL: "WARN"
-      KAFKA_SUPER_USERS: "User:CN=broker;User:CN=kafka-ui;User:CN=admin"
-
-      KAFKA_NUM_PARTITIONS: "1"
-      KAFKA_DEFAULT_REPLICATION_FACTOR: "1"
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
-      KAFKA_LOG_DIR: "/var/lib/kafka/data"
-    healthcheck:
-      test: ['CMD', '/bin/bash', '-c', 'cd /kafka/secrets && _JAVA_OPTIONS="-Xmx32M -Xms32M" /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server broker3:9092 --config ./bootstrap.conf || exit 1']
-      start_period: "7s"
-      interval: "5s"
-      timeout: "10s"
-      retries: 10
-    volumes:
-      - ./ContainerData/GeneratedCerts/Kafka/Brokers/broker3:/kafka/secrets
-      - ./ContainerData/Kafka/Brokers/Broker3/Data:/var/lib/kafka/data
-
   create-acls:
     image: apache/kafka:3.8.0
     hostname: create-acls
@@ -659,6 +706,10 @@ services:
     networks:
       - apps_network
     depends_on:
+      create-certificates-for-users:
+        required: true
+        restart: false
+        condition: service_completed_successfully
       broker1:
         required: true
         restart: false
@@ -761,6 +812,10 @@ services:
     networks:
       - apps_network
     depends_on:
+      create-certificates-for-users:
+        required: true
+        restart: false
+        condition: service_completed_successfully
       broker1:
         required: true
         restart: false
@@ -950,7 +1005,7 @@ services:
         }
       SCHEMA_DEFINITION_PERSONS_JSON: |
         {
-          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$$schema": "http://json-schema.org/draft-04/schema#",
           "title": "Person",
           "type": "object",
           "additionalProperties": false,
@@ -967,7 +1022,7 @@ services:
                   "type": "null"
                 },
                 {
-                  "$ref": "#/definitions/PersonName"
+                  "$$ref": "#/definitions/PersonName"
                 }
               ]
             },
@@ -1368,6 +1423,10 @@ services:
     container_name: kafka-ui
     user: 1000:1001
     depends_on:
+      create-certificates-for-users:
+        required: true
+        restart: false
+        condition: service_completed_successfully
       broker1:
         required: true
         restart: false
