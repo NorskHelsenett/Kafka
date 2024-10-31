@@ -602,7 +602,7 @@ services:
 
         echo '================ Done Setting Up Variables ========================'
 
-        function CreateUserCerts {
+        function CreateCertsForUser {
           local USER_CN=$$1
           local USER_OUTPUT_DIR="/ContainerData/GeneratedCerts/Kafka/Users/$$1"
           echo "Cleaning and setting up folder structure for $$USER_CN certificate"
@@ -690,13 +690,13 @@ services:
           popd
         }
 
-        CreateUserCerts "admin"
-        CreateUserCerts "kafka-ui"
-        CreateUserCerts "demo-producer"
-        CreateUserCerts "demo-consumer"
-        CreateUserCerts "avro-user"
-        CreateUserCerts "protobuf-user"
-        CreateUserCerts "json-user"
+        CreateCertsForUser "admin"
+        CreateCertsForUser "kafka-ui"
+        CreateCertsForUser "demo-producer"
+        CreateCertsForUser "demo-consumer"
+        CreateCertsForUser "avro-user"
+        CreateCertsForUser "protobuf-user"
+        CreateCertsForUser "json-user"
 
   create-acls:
     image: apache/kafka:3.8.0
