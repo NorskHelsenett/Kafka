@@ -1,0 +1,174 @@
+networks:
+  apps_network:
+    name: apps_network
+    external: true
+
+services:
+  ungrouped-consumer-1:
+    image: localhost/topic_consumer
+    container_name: ungrouped-consumer-1
+    build:
+      context: ./FullyWorkingExample
+      dockerfile: Dockerfile
+    user: 1000:1001
+    networks:
+      - apps_network
+    # ports:
+    #   - "8080:8080"
+    volumes:
+      - ../../ContainerData/GeneratedCerts/Kafka/Users/demo-consumer:/kafka/secrets
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+      ASPNETCORE_DETAILEDERRORS: "true"
+
+      # LOGGING__LOGLEVEL__DEFAULT: "Information"
+      LOGGING__LOGLEVEL__DEFAULT: "Trace"
+      LOGGING__LOGLEVEL__MICROSOFT: "Warning"
+      LOGGING__LOGLEVEL__MICROSOFT.ASPNETCORE.DATAPROTECTION: "Error"
+
+      # App specific config
+      CONSUMING_WITHOUT_CG_TOPIC: "Users"
+      CONSUMING_WITHOUT_CG_ASSIGN_OR_SUBSCRIBE: "assign" # can be either "assign" or "subscribe"
+
+      # kafkal config
+      KAFKA_BOOTSTRAP_SERVERS: "broker1:9092,broker2:9092,broker3:9092"
+      KAFKA_SECURITY_PROTOCOL: "ssl"
+      KAFKA_SSL_CA_PEM_LOCATION: "/kafka/secrets/ca.crt"
+      KAFKA_SSL_CERTIFICATE_LOCATION: "/kafka/secrets/acl-principal.crt"
+      KAFKA_SSL_KEY_LOCATION: "/kafka/secrets/acl-principal.key"
+      KAFKA_SSL_KEY_PASSWORD_LOCATION: "/kafka/secrets/password.txt"
+      KAFKA_ACKS: "all"
+      KAFKA_CLIENT_ID: "ungrouped-consumer-1"
+      KAFKA_GROUP_ID: "cg.demo-consumer.0" # Actually working value user has acl for "cg.demo-consumer.0"
+      KAFKA_ENABLE_AUTO_OFFSET_STORE: "true"
+      KAFKA_ENABLE_AUTO_COMMIT: "false"
+      KAFKA_AUTO_OFFSET_RESET: "Earliest"
+      KAFKA_ENABLE_PARTITION_EOF: "true"
+      KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8080/apis/ccompat/v7"
+  ungrouped-consumer-2:
+    image: localhost/topic_consumer
+    container_name: ungrouped-consumer-2
+    build:
+      context: ./FullyWorkingExample
+      dockerfile: Dockerfile
+    user: 1000:1001
+    networks:
+      - apps_network
+    # ports:
+    #   - "8080:8080"
+    volumes:
+      - ../../ContainerData/GeneratedCerts/Kafka/Users/demo-consumer:/kafka/secrets
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+      ASPNETCORE_DETAILEDERRORS: "true"
+
+      # LOGGING__LOGLEVEL__DEFAULT: "Information"
+      LOGGING__LOGLEVEL__DEFAULT: "Trace"
+      LOGGING__LOGLEVEL__MICROSOFT: "Warning"
+      LOGGING__LOGLEVEL__MICROSOFT.ASPNETCORE.DATAPROTECTION: "Error"
+
+      # App specific config
+      CONSUMING_WITHOUT_CG_TOPIC: "Users"
+      CONSUMING_WITHOUT_CG_ASSIGN_OR_SUBSCRIBE: "assign" # can be either "assign" or "subscribe"
+
+      # kafkal config
+      KAFKA_BOOTSTRAP_SERVERS: "broker1:9092,broker2:9092,broker3:9092"
+      KAFKA_SECURITY_PROTOCOL: "ssl"
+      KAFKA_SSL_CA_PEM_LOCATION: "/kafka/secrets/ca.crt"
+      KAFKA_SSL_CERTIFICATE_LOCATION: "/kafka/secrets/acl-principal.crt"
+      KAFKA_SSL_KEY_LOCATION: "/kafka/secrets/acl-principal.key"
+      KAFKA_SSL_KEY_PASSWORD_LOCATION: "/kafka/secrets/password.txt"
+      KAFKA_ACKS: "all"
+      KAFKA_CLIENT_ID: "ungrouped-consumer-2"
+      KAFKA_GROUP_ID: "cg.demo-consumer.0" # Actually working value user has acl for "cg.demo-consumer.0"
+      KAFKA_ENABLE_AUTO_OFFSET_STORE: "true"
+      KAFKA_ENABLE_AUTO_COMMIT: "false"
+      KAFKA_AUTO_OFFSET_RESET: "Earliest"
+      KAFKA_ENABLE_PARTITION_EOF: "true"
+      KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8080/apis/ccompat/v7"
+  grouped-consumer-1:
+    image: localhost/topic_consumer
+    container_name: grouped-consumer-1
+    build:
+      context: ./FullyWorkingExample
+      dockerfile: Dockerfile
+    user: 1000:1001
+    networks:
+      - apps_network
+    # ports:
+    #   - "8080:8080"
+    volumes:
+      - ../../ContainerData/GeneratedCerts/Kafka/Users/demo-consumer:/kafka/secrets
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+      ASPNETCORE_DETAILEDERRORS: "true"
+
+      # LOGGING__LOGLEVEL__DEFAULT: "Information"
+      LOGGING__LOGLEVEL__DEFAULT: "Trace"
+      LOGGING__LOGLEVEL__MICROSOFT: "Warning"
+      LOGGING__LOGLEVEL__MICROSOFT.ASPNETCORE.DATAPROTECTION: "Error"
+
+      # App specific config
+      CONSUMING_WITHOUT_CG_TOPIC: "Users"
+      CONSUMING_WITHOUT_CG_ASSIGN_OR_SUBSCRIBE: "subscribe" # can be either "assign" or "subscribe"
+
+      # kafkal config
+      KAFKA_BOOTSTRAP_SERVERS: "broker1:9092,broker2:9092,broker3:9092"
+      KAFKA_SECURITY_PROTOCOL: "ssl"
+      KAFKA_SSL_CA_PEM_LOCATION: "/kafka/secrets/ca.crt"
+      KAFKA_SSL_CERTIFICATE_LOCATION: "/kafka/secrets/acl-principal.crt"
+      KAFKA_SSL_KEY_LOCATION: "/kafka/secrets/acl-principal.key"
+      KAFKA_SSL_KEY_PASSWORD_LOCATION: "/kafka/secrets/password.txt"
+      KAFKA_ACKS: "all"
+      KAFKA_CLIENT_ID: "grouped-consumer-1"
+      KAFKA_GROUP_ID: "cg.demo-consumer.0" # Actually working value user has acl for "cg.demo-consumer.0"
+      KAFKA_ENABLE_AUTO_OFFSET_STORE: "true"
+      KAFKA_ENABLE_AUTO_COMMIT: "true"
+      KAFKA_AUTO_OFFSET_RESET: "Earliest"
+      KAFKA_ENABLE_PARTITION_EOF: "true"
+      KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8080/apis/ccompat/v7"
+  grouped-consumer-2:
+    image: localhost/topic_consumer
+    container_name: grouped-consumer-2
+    build:
+      context: ./FullyWorkingExample
+      dockerfile: Dockerfile
+    user: 1000:1001
+    networks:
+      - apps_network
+    # ports:
+    #   - "8080:8080"
+    volumes:
+      - ../../ContainerData/GeneratedCerts/Kafka/Users/demo-consumer:/kafka/secrets
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+      ASPNETCORE_DETAILEDERRORS: "true"
+
+      # LOGGING__LOGLEVEL__DEFAULT: "Information"
+      LOGGING__LOGLEVEL__DEFAULT: "Trace"
+      LOGGING__LOGLEVEL__MICROSOFT: "Warning"
+      LOGGING__LOGLEVEL__MICROSOFT.ASPNETCORE.DATAPROTECTION: "Error"
+
+      # App specific config
+      CONSUMING_WITHOUT_CG_TOPIC: "Users"
+      CONSUMING_WITHOUT_CG_ASSIGN_OR_SUBSCRIBE: "subscribe" # can be either "assign" or "subscribe"
+
+      # kafkal config
+      KAFKA_BOOTSTRAP_SERVERS: "broker1:9092,broker2:9092,broker3:9092"
+      KAFKA_SECURITY_PROTOCOL: "ssl"
+      KAFKA_SSL_CA_PEM_LOCATION: "/kafka/secrets/ca.crt"
+      KAFKA_SSL_CERTIFICATE_LOCATION: "/kafka/secrets/acl-principal.crt"
+      KAFKA_SSL_KEY_LOCATION: "/kafka/secrets/acl-principal.key"
+      KAFKA_SSL_KEY_PASSWORD_LOCATION: "/kafka/secrets/password.txt"
+      KAFKA_ACKS: "all"
+      KAFKA_CLIENT_ID: "grouped-consumer-2"
+      KAFKA_GROUP_ID: "cg.demo-consumer.0" # Actually working value user has acl for "cg.demo-consumer.0"
+      KAFKA_ENABLE_AUTO_OFFSET_STORE: "true"
+      KAFKA_ENABLE_AUTO_COMMIT: "true"
+      KAFKA_AUTO_OFFSET_RESET: "Earliest"
+      KAFKA_ENABLE_PARTITION_EOF: "true"
+      KAFKA_SCHEMA_REGISTRY_URL: "http://schema-registry:8080/apis/ccompat/v7"
