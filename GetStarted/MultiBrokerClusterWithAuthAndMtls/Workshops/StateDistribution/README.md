@@ -50,3 +50,17 @@ Note, while the input is a json formatted [ApiParamPerson.cs](./Exercise1-Receiv
 You can find a suggested schema in [Protos directory](./Exercise1-ReceiveAndProduce/StateDistributor/Protos/), as well as instructions on how to generate the dotnet types.
 
 If you struggle with this step/get stuck, you can copy the generated dotnet mapping class for the protobuf definition from [the same location in the second exercise](./Exercise2-ConsumeAndMakeAvailable/StateDistributor/Protos/GeneratedFiles/Person.cs).
+
+# Second exercise
+
+The second exercise focuses on consuming data form Kafka, and making it available for the basic API in [Program.cs](./Exercise2-ConsumeAndMakeAvailable/StateDistributor/Program.cs).
+Again the focus is not on implementing an API or clever ways of holding and passing data in dotnet, so this is provided for you.
+In the [/retrieve endpoint](./Exercise2-ConsumeAndMakeAvailable/StateDistributor/Program.cs#L52) you will find a reference to the [OutputStateService.cs](./Exercise2-ConsumeAndMakeAvailable/StateDistributor/OutputStateService.cs), which is the one we will be using in the [KafkaConsumerService.cs](./Exercise2-ConsumeAndMakeAvailable/StateDistributor/KafkaConsumerService.cs) to pass data to the frontend.
+
+Here the focus will be on bootstrapping the consumer, much in the same way we did the producer in exercise 1, in the [GetConsumer() method](./Exercise2-ConsumeAndMakeAvailable/StateDistributor/KafkaConsumerService.cs#L61).
+
+You can ignore the `SaveStartupTimeLastTopicPartitionOffsets()` and `GetTopicPartitions()` methods for now, they are relevant for the third exercise.
+
+Once you have done that, you should have available an instance of a Kafka consumer in the [DoWork() method](./Exercise2-ConsumeAndMakeAvailable/StateDistributor/KafkaConsumerService.cs#L36).
+Your next step is implementing the consuming [on line 47 in the DoWork() method](./Exercise2-ConsumeAndMakeAvailable/StateDistributor/KafkaConsumerService.cs#L47), and passing the consumed data to the [Store() method in OutputStateService.cs](./Exercise2-ConsumeAndMakeAvailable/StateDistributor/OutputStateService.cs) (which has already been implemented for you).
+Once you've done this, you should be able to test retrieval from the API.
