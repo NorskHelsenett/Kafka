@@ -6,8 +6,8 @@ public class TopicCopier : BackgroundService
     private readonly ILogger<TopicCopier> _logger;
     private readonly KafkaConfigSource _kafkaConfigSource;
     private readonly KafkaConfigDestination _kafkaConfigDestination;
-    private readonly IConsumer<byte[], byte[]> _consumer;
-    private readonly IProducer<byte[], byte[]> _producer;
+    private readonly IConsumer<byte[]?, byte[]?> _consumer;
+    private readonly IProducer<byte[]?, byte[]?> _producer;
     private readonly byte[] _magicBytesDestinationValue;
 
     public TopicCopier(ILogger<TopicCopier> logger, KafkaConfigSource kafkaConfigSource, KafkaConfigDestination kafkaConfigDestination)
@@ -24,13 +24,11 @@ public class TopicCopier : BackgroundService
             kafkaConfigDestination.SchemaRegistryAddress,
             httpClient,
             cancellationToken).Result;
-        _logger.LogInformation("magicBytes: "+ Convert.ToHexString(_magicBytesDestinationValue));
+        _logger.LogInformation($"magicBytes: {Convert.ToHexString(_magicBytesDestinationValue)}");
 
         foreach(byte b in _magicBytesDestinationValue){
             _logger.LogInformation(Convert.ToHexString([b]));
         }
-
-
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -83,17 +81,21 @@ public class TopicCopier : BackgroundService
         }
     }
 
-    private void SendMessageToDestinations(Message<byte[], byte[]> consumeResult, CancellationToken stoppingToken)
+    private void SendMessageToDestinations(Message<byte[]?, byte[]?> consumeResult, CancellationToken stoppingToken)
     {
-        var messagePayload = new List<byte>();
-        messagePayload.AddRange(_magicBytesDestinationValue);
-        messagePayload.AddRange(consumeResult.Value);
-        var message = new Message<byte[], byte[]>
-            {
-                Key = consumeResult.Key,
-                Value = messagePayload.ToArray(),
-                Headers = consumeResult.Headers
-            };
+        List<byte>? messagePayload = null;
+        if (consumeResult.Value != null)
+        {
+            messagePayload = new List<byte>();
+            messagePayload.AddRange(_magicBytesDestinationValue);
+            messagePayload.AddRange(consumeResult.Value);
+        }
+        var message = new Message<byte[]?, byte[]?>
+        {
+            Key = consumeResult.Key,
+            Value = messagePayload?.ToArray(),
+            Headers = consumeResult.Headers
+        };
         // Perform the more laborious producer queue full check here, because raw byte could go so fast we get fastness issues
         var notSent = true;
         while (notSent && !stoppingToken.IsCancellationRequested)
@@ -103,7 +105,7 @@ public class TopicCopier : BackgroundService
                 _producer.Produce(_kafkaConfigDestination.DestinationTopic,message);
                 notSent = false;
             }
-            catch (ProduceException<byte[], byte[]> ex)
+            catch (ProduceException<byte[]?, byte[]> ex)
             {
                 if (!ex.Message.Contains("Queue full"))
                 {
@@ -116,20 +118,20 @@ public class TopicCopier : BackgroundService
         }
     }
 
-    private Message<byte[], byte[]> GetMessageFromResult(ConsumeResult<byte[], byte[]> consumeResult, CancellationToken stoppingToken)
+    private Message<byte[]?, byte[]?> GetMessageFromResult(ConsumeResult<byte[]?, byte[]?> consumeResult, CancellationToken stoppingToken)
     {
         if (consumeResult.Message.Value == null)
         {
-            return new Message<byte[], byte[]>
+            // No need to strip schema if there is no value
+            return new Message<byte[]?, byte[]?>
             {
                 Headers = consumeResult.Message.Headers,
                 Key = consumeResult.Message.Key,
-#pragma warning disable CS8601 // Possible null reference assignment.
                 Value = consumeResult.Message.Value
-#pragma warning restore CS8601 // Possible null reference assignment.
             };
         }
-        return new Message<byte[], byte[]>
+        // If source has schema, strip magic bytes, 'cause it ain't sure they're supposed to be the same at the destination
+        return new Message<byte[]?, byte[]?>
         {
             Headers = consumeResult.Message.Headers,
             Key = consumeResult.Message.Key,
@@ -139,13 +141,13 @@ public class TopicCopier : BackgroundService
 
     public override async Task StopAsync(CancellationToken stoppingToken)
     {
-        // Perform gracefull shutdown, i.e. producer flush queued events to kafka, consumer close connection so that offsets are stored and groups left.
+        // Perform graceful shutdown, i.e. producer flush queued events to kafka, consumer close connection so that offsets are stored and groups left.
         _consumer.Close();
         _producer.Flush(stoppingToken);
         await base.StopAsync(stoppingToken);
     }
 
-    private IConsumer<byte[], byte[]> GetConsumer(KafkaConfigSource kafkaConfig)
+    private IConsumer<byte[]?, byte[]?> GetConsumer(KafkaConfigSource kafkaConfig)
     {
         var config = new ConsumerConfig()
         {
@@ -173,26 +175,20 @@ public class TopicCopier : BackgroundService
         }
         else if (kafkaConfig.SecurityProtocol?.ToLowerInvariant() == "plaintext")
         {
-            _logger.LogInformation("Setting up consumer to use Plaintext connection (are you connecting to the old Azure cluster?)");
+            _logger.LogInformation("Setting up consumer to use Plaintext connection");
             config.SecurityProtocol = SecurityProtocol.Plaintext;
         }
         else
         {
             throw new NotImplementedException($"Unsupported kafka security protocol \"{kafkaConfig.SecurityProtocol}\" supplied");
         }
-        var consumer = new ConsumerBuilder<byte[], byte[]>(config)
-            // .SetPartitionsAssignedHandler((c, partitions) =>
-            // {
-            //     // Read entire topic form start at every startup unless something else is specified
-            //     var offsets = partitions.Select(tp => new TopicPartitionOffset(tp, Offset.Beginning));
-            //     return offsets;
-            // })
+        var consumer = new ConsumerBuilder<byte[]?, byte[]?>(config)
             .Build();
         consumer.Subscribe(kafkaConfig.SourceTopic);
         return consumer;
     }
 
-    private IProducer<byte[], byte[]> GetProducer(KafkaConfigDestination kafkaConfig)
+    private IProducer<byte[]?, byte[]?> GetProducer(KafkaConfigDestination kafkaConfig)
     {
         var config = new ProducerConfig
         {
@@ -219,14 +215,14 @@ public class TopicCopier : BackgroundService
         }
         else if (kafkaConfig.SecurityProtocol?.ToLowerInvariant() == "plaintext")
         {
-            _logger.LogInformation("Setting up producer to use Plaintext connection (are you connecting to the old Azure cluster?)");
+            _logger.LogInformation("Setting up producer to use Plaintext connection");
             config.SecurityProtocol = SecurityProtocol.Plaintext;
         }
         else
         {
             throw new NotImplementedException($"Unsupported kafka security protocol \"{kafkaConfig.SecurityProtocol}\" supplied");
         }
-        return new ProducerBuilder<byte[], byte[]>(config).Build();
+        return new ProducerBuilder<byte[]?, byte[]?>(config).Build();
     }
 
     private async Task<byte[]> GetMagicBytesForTopicValue(string topicName, string? schemaRegistryAddress, HttpClient httpClient, CancellationToken cancellationToken)
@@ -252,30 +248,31 @@ public class TopicCopier : BackgroundService
                 }
                 int idRaw = schema.id;
                 byte[] idBytes = BitConverter.GetBytes(idRaw);
-                _logger.LogInformation("before reverse: "+Convert.ToHexString(idBytes));
+                _logger.LogInformation($"Schema registry schema ID as bytes: {Convert.ToHexString(idBytes)}");
+                if (idBytes.Length != 4)
+                {
+                    throw new Exception($"Schema registry schema ID \"{idRaw}\" when converted to bytes using \"{nameof(BitConverter.GetBytes)}\" is not 4 bytes long, hex encoded it is \"{Convert.ToHexString(idBytes)}\". The promise of \"{nameof(BitConverter.GetBytes)}\" is not fulfilled");
+                }
 
                 if (BitConverter.IsLittleEndian)
                 {
-                    _logger.LogInformation("Doing reverse");
+                    _logger.LogInformation("Dotnet system bit converter uses little endian, reversing schema bytes");
                     Array.Reverse(idBytes);
-
+                    _logger.LogInformation($"After from little endian: \"{Convert.ToHexString(idBytes)}\"");
                 }
-                _logger.LogInformation("After reverse: "+Convert.ToHexString(idBytes));
 
-                var magicBytes = new List<byte>();
-                magicBytes.Add(0x00);
+                var magicBytes = new List<byte> { 0x00 };
                 magicBytes.AddRange(idBytes);
-                magicBytes.AddRange([0x00, 0x00, 0x00, 0x00]); // In case idBytes is anything less than 4 long
                 var result = magicBytes[..5];
                 return result.ToArray();
             }
 
-            _logger.LogWarning($"Response from Schema registry \"{latestVersionAddress}\" when retrieving data about schema for values for topic {topicName} was not successful, status code {response.StatusCode}, reason \"{response.ReasonPhrase}\"");
+            _logger.LogWarning($"Response from Schema registry \"{latestVersionAddress}\" when retrieving data about schema for values for topic \"{topicName}\" was not successful, status code \"{response.StatusCode}\", reason \"{response.ReasonPhrase}\"");
             return [];
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Got exception while retrieving data about schema for values for topic {topicName} from schema registry endpoint  \"{latestVersionAddress}\"");
+            _logger.LogError(ex, $"Got exception while retrieving data about schema for values for topic \"{topicName}\" from schema registry endpoint  \"{latestVersionAddress}\"");
         }
 
         return [];
