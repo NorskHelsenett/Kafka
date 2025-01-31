@@ -702,7 +702,7 @@ services:
         CreateCertsForUser "json-user"
 
   create-acls:
-    image: apache/kafka:3.8.0
+    image: apache/kafka:3.9.0
     hostname: create-acls
     container_name: create-acls
     user: 1000:1001
@@ -808,7 +808,7 @@ services:
         CreateConsumeAcl --topic "persons-json" --principal "json-user" --group "persons-json-group"
 
   create-demo-topics:
-    image: apache/kafka:3.8.0
+    image: apache/kafka:3.9.0
     hostname: create-demo-topics
     container_name: create-demo-topics
     user: 1000:1001
