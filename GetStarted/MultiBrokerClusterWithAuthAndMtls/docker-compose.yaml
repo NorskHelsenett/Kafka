@@ -1121,11 +1121,13 @@ services:
     build:
       context: .
       dockerfile_inline: |
-        FROM python:3.12
+        FROM python:3.13.1
         RUN pip install confluent-kafka \
           && pip install jsonschema \
           && pip install requests \
-          && pip install protobuf
+          && pip install protobuf \
+          && pip install httpx \
+          && pip install cachetools
     depends_on:
       broker1:
         required: true
@@ -1309,11 +1311,13 @@ services:
     build:
       context: .
       dockerfile_inline: |
-        FROM python:3.12
+        FROM python:3.13.1
         RUN pip install confluent-kafka \
           && pip install jsonschema \
           && pip install requests \
-          && pip install protobuf
+          && pip install protobuf \
+          && pip install httpx \
+          && pip install cachetools
     networks:
       - apps_network
     depends_on:
