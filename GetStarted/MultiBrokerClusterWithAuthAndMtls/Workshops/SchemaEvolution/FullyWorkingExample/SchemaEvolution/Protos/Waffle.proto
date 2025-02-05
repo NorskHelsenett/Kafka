@@ -1,4 +1,6 @@
 syntax = "proto3";
+package no.nhn.kafka.examples.waffle;
+option java_package = "namespace.waffle";
 option csharp_namespace = "Namespace.Waffle";
 
 enum Kind {

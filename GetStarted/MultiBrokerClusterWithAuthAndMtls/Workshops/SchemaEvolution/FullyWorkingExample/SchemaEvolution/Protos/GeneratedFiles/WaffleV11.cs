@@ -24,14 +24,17 @@ namespace Namespace.Waffle.V1_1 {
     static WaffleV11Reflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "ChBXYWZmbGVWMS4xLnByb3RvInkKBldhZmZsZRIKCgJJZBgBIAEoCRITCgRL",
-            "aW5kGAIgASgOMgUuS2luZBIfCgpDb25kaW1lbnRzGAMgAygOMgsuQ29uZGlt",
-            "ZW50cxItChFTZXZpbmdUZW1wZXJhdHVyZRgEIAEoDjISLlNldmluZ1RlbXBl",
-            "cmF0dXJlKh8KBEtpbmQSCgoGTk9STUFMEAASCwoHQkVMR0lBThABKk8KCkNv",
-            "bmRpbWVudHMSCgoGQlVUVEVSEAASCQoFU1VHQVIQARIHCgNKQU0QAhIOCgpT",
-            "T1VSX0NSRUFNEAMSEQoNQ0FTSEVXX0JVVFRFUhAEKiYKEVNldmluZ1RlbXBl",
-            "cmF0dXJlEgcKA0hPVBAAEggKBENPTEQQAUIYqgIVTmFtZXNwYWNlLldhZmZs",
-            "ZS5WMV8xYgZwcm90bzM="));
+            "ChBXYWZmbGVWMS4xLnByb3RvEiFuby5uaG4ua2Fma2EuZXhhbXBsZXMud2Fm",
+            "ZmxlLnYxXzEi3wEKBldhZmZsZRIKCgJJZBgBIAEoCRI1CgRLaW5kGAIgASgO",
+            "Micubm8ubmhuLmthZmthLmV4YW1wbGVzLndhZmZsZS52MV8xLktpbmQSQQoK",
+            "Q29uZGltZW50cxgDIAMoDjItLm5vLm5obi5rYWZrYS5leGFtcGxlcy53YWZm",
+            "bGUudjFfMS5Db25kaW1lbnRzEk8KEVNldmluZ1RlbXBlcmF0dXJlGAQgASgO",
+            "MjQubm8ubmhuLmthZmthLmV4YW1wbGVzLndhZmZsZS52MV8xLlNldmluZ1Rl",
+            "bXBlcmF0dXJlKh8KBEtpbmQSCgoGTk9STUFMEAASCwoHQkVMR0lBThABKk8K",
+            "CkNvbmRpbWVudHMSCgoGQlVUVEVSEAASCQoFU1VHQVIQARIHCgNKQU0QAhIO",
+            "CgpTT1VSX0NSRUFNEAMSEQoNQ0FTSEVXX0JVVFRFUhAEKiYKEVNldmluZ1Rl",
+            "bXBlcmF0dXJlEgcKA0hPVBAAEggKBENPTEQQAUIvChVuYW1lc3BhY2Uud2Fm",
+            "ZmxlLnYxXzGqAhVOYW1lc3BhY2UuV2FmZmxlLlYxXzFiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Namespace.Waffle.V1_1.Kind), typeof(global::Namespace.Waffle.V1_1.Condiments), typeof(global::Namespace.Waffle.V1_1.SevingTemperature), }, null, new pbr::GeneratedClrTypeInfo[] {

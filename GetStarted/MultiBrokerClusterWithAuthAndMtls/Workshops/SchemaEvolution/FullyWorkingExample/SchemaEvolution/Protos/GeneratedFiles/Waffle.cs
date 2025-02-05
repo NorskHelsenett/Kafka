@@ -24,11 +24,14 @@ namespace Namespace.Waffle {
     static WaffleReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "CgxXYWZmbGUucHJvdG8iSgoGV2FmZmxlEgoKAklkGAEgASgJEhMKBEtpbmQY",
-            "AiABKA4yBS5LaW5kEh8KCkNvbmRpbWVudHMYAyADKA4yCy5Db25kaW1lbnRz",
-            "Kh8KBEtpbmQSCgoGTk9STUFMEAASCwoHQkVMR0lBThABKjwKCkNvbmRpbWVu",
-            "dHMSCgoGQlVUVEVSEAASCQoFU1VHQVIQARIHCgNKQU0QAhIOCgpTT1VSX0NS",
-            "RUFNEANCE6oCEE5hbWVzcGFjZS5XYWZmbGViBnByb3RvMw=="));
+            "CgxXYWZmbGUucHJvdG8SHG5vLm5obi5rYWZrYS5leGFtcGxlcy53YWZmbGUi",
+            "hAEKBldhZmZsZRIKCgJJZBgBIAEoCRIwCgRLaW5kGAIgASgOMiIubm8ubmhu",
+            "LmthZmthLmV4YW1wbGVzLndhZmZsZS5LaW5kEjwKCkNvbmRpbWVudHMYAyAD",
+            "KA4yKC5uby5uaG4ua2Fma2EuZXhhbXBsZXMud2FmZmxlLkNvbmRpbWVudHMq",
+            "HwoES2luZBIKCgZOT1JNQUwQABILCgdCRUxHSUFOEAEqPAoKQ29uZGltZW50",
+            "cxIKCgZCVVRURVIQABIJCgVTVUdBUhABEgcKA0pBTRACEg4KClNPVVJfQ1JF",
+            "QU0QA0IlChBuYW1lc3BhY2Uud2FmZmxlqgIQTmFtZXNwYWNlLldhZmZsZWIG",
+            "cHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Namespace.Waffle.Kind), typeof(global::Namespace.Waffle.Condiments), }, null, new pbr::GeneratedClrTypeInfo[] {

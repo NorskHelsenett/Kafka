@@ -24,15 +24,18 @@ namespace Namespace.Waffle.V2 {
     static WaffleV2Reflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "Cg5XYWZmbGVWMi5wcm90byJ4CgZXYWZmbGUSCgoCSWQYASABKAkSEwoES2lu",
-            "ZBgCIAEoDjIFLktpbmQSLQoRU2V2aW5nVGVtcGVyYXR1cmUYBCABKA4yEi5T",
-            "ZXZpbmdUZW1wZXJhdHVyZRIeCgpDb25kaW1lbnRzGAMgAygOMgouQ29uZGlt",
-            "ZW50Kh8KBEtpbmQSCgoGTk9STUFMEAASCwoHQkVMR0lBThABKoQBCglDb25k",
-            "aW1lbnQSBwoDSkFNEAASDgoKU09VUl9DUkVBTRABEgoKBkJVVFRFUhACEgkK",
-            "BVNVR0FSEAMSEQoNQ0FTSEVXX0JVVFRFUhAEEg8KC01BUExFX1NZUlVQEAUS",
-            "EAoMU1RSQVdCRVJSSUVTEAYSEQoNV0hJUFBFRF9DUkVBTRAHKjAKEVNldmlu",
-            "Z1RlbXBlcmF0dXJlEgcKA0hPVBAAEggKBENPTEQQARIICgRST09NEAJCFqoC",
-            "E05hbWVzcGFjZS5XYWZmbGUuVjJiBnByb3RvMw=="));
+            "Cg5XYWZmbGVWMi5wcm90bxIfbm8ubmhuLmthZmthLmV4YW1wbGVzLndhZmZs",
+            "ZS52MiLYAQoGV2FmZmxlEgoKAklkGAEgASgJEjMKBEtpbmQYAiABKA4yJS5u",
+            "by5uaG4ua2Fma2EuZXhhbXBsZXMud2FmZmxlLnYyLktpbmQSTQoRU2V2aW5n",
+            "VGVtcGVyYXR1cmUYBCABKA4yMi5uby5uaG4ua2Fma2EuZXhhbXBsZXMud2Fm",
+            "ZmxlLnYyLlNldmluZ1RlbXBlcmF0dXJlEj4KCkNvbmRpbWVudHMYAyADKA4y",
+            "Ki5uby5uaG4ua2Fma2EuZXhhbXBsZXMud2FmZmxlLnYyLkNvbmRpbWVudCof",
+            "CgRLaW5kEgoKBk5PUk1BTBAAEgsKB0JFTEdJQU4QASqEAQoJQ29uZGltZW50",
+            "EgcKA0pBTRAAEg4KClNPVVJfQ1JFQU0QARIKCgZCVVRURVIQAhIJCgVTVUdB",
+            "UhADEhEKDUNBU0hFV19CVVRURVIQBBIPCgtNQVBMRV9TWVJVUBAFEhAKDFNU",
+            "UkFXQkVSUklFUxAGEhEKDVdISVBQRURfQ1JFQU0QByowChFTZXZpbmdUZW1w",
+            "ZXJhdHVyZRIHCgNIT1QQABIICgRDT0xEEAESCAoEUk9PTRACQisKE25hbWVz",
+            "cGFjZS53YWZmbGUudjKqAhNOYW1lc3BhY2UuV2FmZmxlLlYyYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Namespace.Waffle.V2.Kind), typeof(global::Namespace.Waffle.V2.Condiment), typeof(global::Namespace.Waffle.V2.SevingTemperature), }, null, new pbr::GeneratedClrTypeInfo[] {

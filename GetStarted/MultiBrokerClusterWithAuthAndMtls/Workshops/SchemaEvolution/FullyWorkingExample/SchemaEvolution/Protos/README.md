@@ -17,3 +17,5 @@ protoc --proto_path=. --csharp_out=GeneratedFiles Waffle.proto
 protoc --proto_path=. --csharp_out=GeneratedFiles WaffleV1.1.proto
 protoc --proto_path=. --csharp_out=GeneratedFiles WaffleV2.proto
 ```
+
+Or you can do all of them at the same time like this `protoc --proto_path=. --csharp_out=GeneratedFiles *.proto` (after installing brew and being in the right directory and stuff).
