@@ -25,21 +25,22 @@ namespace Namespace.Waffle.V2 {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "Cg5XYWZmbGVWMi5wcm90bxIfbm8ubmhuLmthZmthLmV4YW1wbGVzLndhZmZs",
-            "ZS52MiLYAQoGV2FmZmxlEgoKAklkGAEgASgJEjMKBEtpbmQYAiABKA4yJS5u",
-            "by5uaG4ua2Fma2EuZXhhbXBsZXMud2FmZmxlLnYyLktpbmQSTQoRU2V2aW5n",
-            "VGVtcGVyYXR1cmUYBCABKA4yMi5uby5uaG4ua2Fma2EuZXhhbXBsZXMud2Fm",
-            "ZmxlLnYyLlNldmluZ1RlbXBlcmF0dXJlEj4KCkNvbmRpbWVudHMYAyADKA4y",
-            "Ki5uby5uaG4ua2Fma2EuZXhhbXBsZXMud2FmZmxlLnYyLkNvbmRpbWVudCof",
-            "CgRLaW5kEgoKBk5PUk1BTBAAEgsKB0JFTEdJQU4QASqEAQoJQ29uZGltZW50",
-            "EgcKA0pBTRAAEg4KClNPVVJfQ1JFQU0QARIKCgZCVVRURVIQAhIJCgVTVUdB",
-            "UhADEhEKDUNBU0hFV19CVVRURVIQBBIPCgtNQVBMRV9TWVJVUBAFEhAKDFNU",
-            "UkFXQkVSUklFUxAGEhEKDVdISVBQRURfQ1JFQU0QByowChFTZXZpbmdUZW1w",
-            "ZXJhdHVyZRIHCgNIT1QQABIICgRDT0xEEAESCAoEUk9PTRACQisKE25hbWVz",
-            "cGFjZS53YWZmbGUudjKqAhNOYW1lc3BhY2UuV2FmZmxlLlYyYgZwcm90bzM="));
+            "ZS52MiLaAQoGV2FmZmxlEgoKAklkGAEgASgJEjMKBEtpbmQYAiABKA4yJS5u",
+            "by5uaG4ua2Fma2EuZXhhbXBsZXMud2FmZmxlLnYyLktpbmQSTwoSU2Vydmlu",
+            "Z1RlbXBlcmF0dXJlGAMgASgOMjMubm8ubmhuLmthZmthLmV4YW1wbGVzLndh",
+            "ZmZsZS52Mi5TZXJ2aW5nVGVtcGVyYXR1cmUSPgoKQ29uZGltZW50cxgEIAMo",
+            "DjIqLm5vLm5obi5rYWZrYS5leGFtcGxlcy53YWZmbGUudjIuQ29uZGltZW50",
+            "Kh8KBEtpbmQSCgoGTk9STUFMEAASCwoHQkVMR0lBThABKoQBCglDb25kaW1l",
+            "bnQSBwoDSkFNEAASDgoKU09VUl9DUkVBTRABEgoKBkJVVFRFUhACEgkKBVNV",
+            "R0FSEAMSEQoNQ0FTSEVXX0JVVFRFUhAEEg8KC01BUExFX1NZUlVQEAUSEAoM",
+            "U1RSQVdCRVJSSUVTEAYSEQoNV0hJUFBFRF9DUkVBTRAHKjEKElNlcnZpbmdU",
+            "ZW1wZXJhdHVyZRIHCgNIT1QQABIICgRDT0xEEAESCAoEUk9PTRACQisKE25h",
+            "bWVzcGFjZS53YWZmbGUudjKqAhNOYW1lc3BhY2UuV2FmZmxlLlYyYgZwcm90",
+            "bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
-          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Namespace.Waffle.V2.Kind), typeof(global::Namespace.Waffle.V2.Condiment), typeof(global::Namespace.Waffle.V2.SevingTemperature), }, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Namespace.Waffle.V2.Waffle), global::Namespace.Waffle.V2.Waffle.Parser, new[]{ "Id", "Kind", "SevingTemperature", "Condiments" }, null, null, null, null)
+          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::Namespace.Waffle.V2.Kind), typeof(global::Namespace.Waffle.V2.Condiment), typeof(global::Namespace.Waffle.V2.ServingTemperature), }, null, new pbr::GeneratedClrTypeInfo[] {
+            new pbr::GeneratedClrTypeInfo(typeof(global::Namespace.Waffle.V2.Waffle), global::Namespace.Waffle.V2.Waffle.Parser, new[]{ "Id", "Kind", "ServingTemperature", "Condiments" }, null, null, null, null)
           }));
     }
     #endregion
@@ -62,7 +63,7 @@ namespace Namespace.Waffle.V2 {
     [pbr::OriginalName("WHIPPED_CREAM")] WhippedCream = 7,
   }
 
-  public enum SevingTemperature {
+  public enum ServingTemperature {
     [pbr::OriginalName("HOT")] Hot = 0,
     [pbr::OriginalName("COLD")] Cold = 1,
     [pbr::OriginalName("ROOM")] Room = 2,
@@ -108,7 +109,7 @@ namespace Namespace.Waffle.V2 {
     public Waffle(Waffle other) : this() {
       id_ = other.id_;
       kind_ = other.kind_;
-      sevingTemperature_ = other.sevingTemperature_;
+      servingTemperature_ = other.servingTemperature_;
       condiments_ = other.condiments_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
@@ -143,22 +144,22 @@ namespace Namespace.Waffle.V2 {
       }
     }
 
-    /// <summary>Field number for the "SevingTemperature" field.</summary>
-    public const int SevingTemperatureFieldNumber = 4;
-    private global::Namespace.Waffle.V2.SevingTemperature sevingTemperature_ = global::Namespace.Waffle.V2.SevingTemperature.Hot;
+    /// <summary>Field number for the "ServingTemperature" field.</summary>
+    public const int ServingTemperatureFieldNumber = 3;
+    private global::Namespace.Waffle.V2.ServingTemperature servingTemperature_ = global::Namespace.Waffle.V2.ServingTemperature.Hot;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Namespace.Waffle.V2.SevingTemperature SevingTemperature {
-      get { return sevingTemperature_; }
+    public global::Namespace.Waffle.V2.ServingTemperature ServingTemperature {
+      get { return servingTemperature_; }
       set {
-        sevingTemperature_ = value;
+        servingTemperature_ = value;
       }
     }
 
     /// <summary>Field number for the "Condiments" field.</summary>
-    public const int CondimentsFieldNumber = 3;
+    public const int CondimentsFieldNumber = 4;
     private static readonly pb::FieldCodec<global::Namespace.Waffle.V2.Condiment> _repeated_condiments_codec
-        = pb::FieldCodec.ForEnum(26, x => (int) x, x => (global::Namespace.Waffle.V2.Condiment) x);
+        = pb::FieldCodec.ForEnum(34, x => (int) x, x => (global::Namespace.Waffle.V2.Condiment) x);
     private readonly pbc::RepeatedField<global::Namespace.Waffle.V2.Condiment> condiments_ = new pbc::RepeatedField<global::Namespace.Waffle.V2.Condiment>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -183,7 +184,7 @@ namespace Namespace.Waffle.V2 {
       }
       if (Id != other.Id) return false;
       if (Kind != other.Kind) return false;
-      if (SevingTemperature != other.SevingTemperature) return false;
+      if (ServingTemperature != other.ServingTemperature) return false;
       if(!condiments_.Equals(other.condiments_)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
@@ -194,7 +195,7 @@ namespace Namespace.Waffle.V2 {
       int hash = 1;
       if (Id.Length != 0) hash ^= Id.GetHashCode();
       if (Kind != global::Namespace.Waffle.V2.Kind.Normal) hash ^= Kind.GetHashCode();
-      if (SevingTemperature != global::Namespace.Waffle.V2.SevingTemperature.Hot) hash ^= SevingTemperature.GetHashCode();
+      if (ServingTemperature != global::Namespace.Waffle.V2.ServingTemperature.Hot) hash ^= ServingTemperature.GetHashCode();
       hash ^= condiments_.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -222,11 +223,11 @@ namespace Namespace.Waffle.V2 {
         output.WriteRawTag(16);
         output.WriteEnum((int) Kind);
       }
-      condiments_.WriteTo(output, _repeated_condiments_codec);
-      if (SevingTemperature != global::Namespace.Waffle.V2.SevingTemperature.Hot) {
-        output.WriteRawTag(32);
-        output.WriteEnum((int) SevingTemperature);
+      if (ServingTemperature != global::Namespace.Waffle.V2.ServingTemperature.Hot) {
+        output.WriteRawTag(24);
+        output.WriteEnum((int) ServingTemperature);
       }
+      condiments_.WriteTo(output, _repeated_condiments_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -245,11 +246,11 @@ namespace Namespace.Waffle.V2 {
         output.WriteRawTag(16);
         output.WriteEnum((int) Kind);
       }
-      condiments_.WriteTo(ref output, _repeated_condiments_codec);
-      if (SevingTemperature != global::Namespace.Waffle.V2.SevingTemperature.Hot) {
-        output.WriteRawTag(32);
-        output.WriteEnum((int) SevingTemperature);
+      if (ServingTemperature != global::Namespace.Waffle.V2.ServingTemperature.Hot) {
+        output.WriteRawTag(24);
+        output.WriteEnum((int) ServingTemperature);
       }
+      condiments_.WriteTo(ref output, _repeated_condiments_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -266,8 +267,8 @@ namespace Namespace.Waffle.V2 {
       if (Kind != global::Namespace.Waffle.V2.Kind.Normal) {
         size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Kind);
       }
-      if (SevingTemperature != global::Namespace.Waffle.V2.SevingTemperature.Hot) {
-        size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) SevingTemperature);
+      if (ServingTemperature != global::Namespace.Waffle.V2.ServingTemperature.Hot) {
+        size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) ServingTemperature);
       }
       size += condiments_.CalculateSize(_repeated_condiments_codec);
       if (_unknownFields != null) {
@@ -288,8 +289,8 @@ namespace Namespace.Waffle.V2 {
       if (other.Kind != global::Namespace.Waffle.V2.Kind.Normal) {
         Kind = other.Kind;
       }
-      if (other.SevingTemperature != global::Namespace.Waffle.V2.SevingTemperature.Hot) {
-        SevingTemperature = other.SevingTemperature;
+      if (other.ServingTemperature != global::Namespace.Waffle.V2.ServingTemperature.Hot) {
+        ServingTemperature = other.ServingTemperature;
       }
       condiments_.Add(other.condiments_);
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
@@ -319,13 +320,13 @@ namespace Namespace.Waffle.V2 {
             Kind = (global::Namespace.Waffle.V2.Kind) input.ReadEnum();
             break;
           }
-          case 26:
           case 24: {
-            condiments_.AddEntriesFrom(input, _repeated_condiments_codec);
+            ServingTemperature = (global::Namespace.Waffle.V2.ServingTemperature) input.ReadEnum();
             break;
           }
+          case 34:
           case 32: {
-            SevingTemperature = (global::Namespace.Waffle.V2.SevingTemperature) input.ReadEnum();
+            condiments_.AddEntriesFrom(input, _repeated_condiments_codec);
             break;
           }
         }
@@ -355,13 +356,13 @@ namespace Namespace.Waffle.V2 {
             Kind = (global::Namespace.Waffle.V2.Kind) input.ReadEnum();
             break;
           }
-          case 26:
           case 24: {
-            condiments_.AddEntriesFrom(ref input, _repeated_condiments_codec);
+            ServingTemperature = (global::Namespace.Waffle.V2.ServingTemperature) input.ReadEnum();
             break;
           }
+          case 34:
           case 32: {
-            SevingTemperature = (global::Namespace.Waffle.V2.SevingTemperature) input.ReadEnum();
+            condiments_.AddEntriesFrom(ref input, _repeated_condiments_codec);
             break;
           }
         }

@@ -19,7 +19,7 @@ enum Condiment {
     WHIPPED_CREAM = 7;
 }
 
-enum SevingTemperature {
+enum ServingTemperature {
     HOT = 0;
     COLD = 1;
     ROOM = 2;
@@ -28,6 +28,6 @@ enum SevingTemperature {
 message Waffle {
     string Id = 1;
     Kind Kind = 2;
-    SevingTemperature SevingTemperature = 4;
-    repeated Condiment Condiments = 3;
+    ServingTemperature ServingTemperature = 3;
+    repeated Condiment Condiments = 4;
 }
