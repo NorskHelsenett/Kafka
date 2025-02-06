@@ -27,7 +27,7 @@ public static class WaffleMaker2
             {
                 Id = $"waffle v2 id {i}",
                 Kind = random.NextSingle() < 0.5 ? Kind.Normal : Kind.Belgian,
-                ServingTemperature = (ServingTemperature) random.Next(0, 3),
+                // ServingTemperature = (ServingTemperature) random.Next(0, 3), // Note that default will be used if unspecified
                 Condiments = {  (Condiment) random.Next(0, 3), (Condiment) random.Next(0, 7) }
             };
             var kafkaMessage = new Message<string, Waffle>{ Key = $"keywaffle v2 {i}", Value = nextWaffle };
