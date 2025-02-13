@@ -22,9 +22,11 @@ public static partial class PersonReflection {
   static PersonReflection() {
     byte[] descriptorData = global::System.Convert.FromBase64String(
         string.Concat(
-          "CgxQZXJzb24ucHJvdG8iKwoKUGVyc29uTmFtZRINCgVHaXZlbhgBIAEoCRIO",
-          "CgZGYW1pbHkYAiABKAkiPQoGUGVyc29uEgoKAklkGAEgASgJEhkKBE5hbWUY",
-          "AiABKAsyCy5QZXJzb25OYW1lEgwKBFRhZ3MYAyADKAliBnByb3RvMw=="));
+          "CgxQZXJzb24ucHJvdG8SHG5vLm5obi5rYWZrYS5leGFtcGxlcy5wZXJzb24i",
+          "KwoKUGVyc29uTmFtZRINCgVHaXZlbhgBIAEoCRIOCgZGYW1pbHkYAiABKAki",
+          "WgoGUGVyc29uEgoKAklkGAEgASgJEjYKBE5hbWUYAiABKAsyKC5uby5uaG4u",
+          "a2Fma2EuZXhhbXBsZXMucGVyc29uLlBlcnNvbk5hbWUSDAoEVGFncxgDIAMo",
+          "CUIDqgIAYgZwcm90bzM="));
     descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
         new pbr::FileDescriptor[] { },
         new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -221,7 +223,11 @@ public sealed partial class PersonName : pb::IMessage<PersonName>
   #else
     uint tag;
     while ((tag = input.ReadTag()) != 0) {
-      switch(tag) {
+    if ((tag & 7) == 4) {
+      // Abort on any end group tag.
+      return;
+    }
+    switch(tag) {
         default:
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
           break;
@@ -244,7 +250,11 @@ public sealed partial class PersonName : pb::IMessage<PersonName>
   void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
     uint tag;
     while ((tag = input.ReadTag()) != 0) {
-      switch(tag) {
+    if ((tag & 7) == 4) {
+      // Abort on any end group tag.
+      return;
+    }
+    switch(tag) {
         default:
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
           break;
@@ -339,6 +349,9 @@ public sealed partial class Person : pb::IMessage<Person>
   private static readonly pb::FieldCodec<string> _repeated_tags_codec
       = pb::FieldCodec.ForString(26);
   private readonly pbc::RepeatedField<string> tags_ = new pbc::RepeatedField<string>();
+  /// <summary>
+  /// no.nhn.kafka.examples.person.PersonName Name = 2; // Also works instead of the above if you want to be more explicit.
+  /// </summary>
   [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
   [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
   public pbc::RepeatedField<string> Tags {
@@ -469,7 +482,11 @@ public sealed partial class Person : pb::IMessage<Person>
   #else
     uint tag;
     while ((tag = input.ReadTag()) != 0) {
-      switch(tag) {
+    if ((tag & 7) == 4) {
+      // Abort on any end group tag.
+      return;
+    }
+    switch(tag) {
         default:
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
           break;
@@ -499,7 +516,11 @@ public sealed partial class Person : pb::IMessage<Person>
   void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
     uint tag;
     while ((tag = input.ReadTag()) != 0) {
-      switch(tag) {
+    if ((tag & 7) == 4) {
+      // Abort on any end group tag.
+      return;
+    }
+    switch(tag) {
         default:
           _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
           break;

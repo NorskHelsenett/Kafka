@@ -1,4 +1,6 @@
 syntax = "proto3";
+package no.nhn.kafka.examples.person;
+option csharp_namespace = "";
 
 message PersonName{
     string Given = 1;
@@ -7,6 +9,7 @@ message PersonName{
 
 message Person {
     string Id = 1;
-    .PersonName Name = 2;
+    PersonName Name = 2;
+    // no.nhn.kafka.examples.person.PersonName Name = 2; // Also works instead of the above if you want to be more explicit.
     repeated string Tags = 3;
 }

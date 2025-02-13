@@ -7,7 +7,7 @@ https://protobuf.dev/downloads/
 Then you can create your `.proto` schema (or download it from the schema registriy).
 The conventional place to put the protobuf schema definitions, in dotnet, is a separate directory named `Protos`.
 Compile your protobuf schema
-`protoc --proto_path=. --csharp_out=.. example.proto`
+`protoc --proto_path=. --csharp_out=GeneratedFiles example.proto`
 
 Confuelnts example:
 https://github.com/confluentinc/confluent-kafka-dotnet/tree/master/examples/Protobuf
