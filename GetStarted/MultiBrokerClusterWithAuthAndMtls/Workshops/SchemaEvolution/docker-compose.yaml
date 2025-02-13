@@ -9,6 +9,9 @@ services:
     container_name: schema-evolution
     build:
       context: ./FullyWorkingExample
+      # context: ./Exercise1-CompileRegisterUse
+      # context: ./Exercise2-CompatibleUpdate
+      # context: ./Exercise3-BreakingChange
       dockerfile: Dockerfile
     user: 1000:1001
     networks:

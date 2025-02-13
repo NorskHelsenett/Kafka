@@ -1,0 +1,29 @@
+syntax = "proto3";
+package no.nhn.kafka.examples.waffle.v1_1;
+option java_package = "namespace.waffle.v1_1";
+option csharp_namespace = "Namespace.Waffle.V1_1";
+
+enum Kind {
+    NORMAL = 0;
+    BELGIAN = 1;
+}
+
+enum Condiments {
+    BUTTER = 0;
+    SUGAR = 1;
+    JAM = 2;
+    SOUR_CREAM = 3;
+    CASHEW_BUTTER = 4;
+}
+
+enum SevingTemperature {
+    HOT = 0;
+    COLD = 1;
+}
+
+message Waffle {
+    string Id = 1;
+    Kind Kind = 2;
+    repeated Condiments Condiments = 3;
+    SevingTemperature SevingTemperature = 4;
+}
