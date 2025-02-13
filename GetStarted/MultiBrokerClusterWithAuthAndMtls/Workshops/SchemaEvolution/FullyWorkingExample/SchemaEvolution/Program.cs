@@ -32,7 +32,7 @@ Console.WriteLine($"Created v2 topic {topicV2Name}");
 Console.WriteLine("Registering third schema");
 var thirdSchemaAsString = File.ReadAllText("./Protos/WaffleV2.proto");
 var secondTopicSchemaSubject = $"{topicV2Name}-value";
-await SchemaRegistryUpdater.RegisterSchema(thirdSchemaAsString, secondTopicSchemaSubject); // Note that we reuse subject, because it's tied to the topic
+await SchemaRegistryUpdater.RegisterSchema(thirdSchemaAsString, secondTopicSchemaSubject);
 Console.WriteLine("Registered schema V2 with the schema registry, you can check it out at http://localhost:8083");
 
 await WaffleMaker2.ProduceWaffles(topicV2Name);
