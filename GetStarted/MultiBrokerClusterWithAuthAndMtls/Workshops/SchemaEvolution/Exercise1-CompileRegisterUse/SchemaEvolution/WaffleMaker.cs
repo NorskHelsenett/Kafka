@@ -1,7 +1,6 @@
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
-using Namespace.Waffle;
 
 namespace SchemaEvolution;
 
