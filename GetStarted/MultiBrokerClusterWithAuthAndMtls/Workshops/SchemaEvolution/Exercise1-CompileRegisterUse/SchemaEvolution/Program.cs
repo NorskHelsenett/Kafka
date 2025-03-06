@@ -1,6 +1,6 @@
 ﻿global using static EnvVarNames;
 using SchemaEvolution;
-using SchemaEvolution.Protos;
+// using SchemaEvolution.Protos;
 
 var topicName = "workshop-schema-evolution-topic-v1";
 
