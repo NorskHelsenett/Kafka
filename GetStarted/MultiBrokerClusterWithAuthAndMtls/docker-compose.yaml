@@ -369,7 +369,7 @@ services:
           --ip_apps_network_v6 "2001:8080:8080::13"
 
   broker1:
-    image: apache/kafka:3.9.0
+    image: apache/kafka:4.0.0
     hostname: broker1
     container_name: broker1
     user: 1000:1001
@@ -433,7 +433,7 @@ services:
       - ./ContainerData/Kafka/Brokers/Broker1/Data:/var/lib/kafka/data
 
   broker2:
-    image: apache/kafka:3.9.0
+    image: apache/kafka:4.0.0
     hostname: broker2
     container_name: broker2
     user: 1000:1001
@@ -496,7 +496,7 @@ services:
       - ./ContainerData/Kafka/Brokers/Broker2/Data:/var/lib/kafka/data
 
   broker3:
-    image: apache/kafka:3.9.0
+    image: apache/kafka:4.0.0
     hostname: broker3
     container_name: broker3
     user: 1000:1001
@@ -702,7 +702,7 @@ services:
         CreateCertsForUser "json-user"
 
   create-acls:
-    image: apache/kafka:3.9.0
+    image: apache/kafka:4.0.0
     hostname: create-acls
     container_name: create-acls
     user: 1000:1001
@@ -808,7 +808,7 @@ services:
         CreateConsumeAcl --topic "persons-json" --principal "json-user" --group "persons-json-group"
 
   create-demo-topics:
-    image: apache/kafka:3.9.0
+    image: apache/kafka:4.0.0
     hostname: create-demo-topics
     container_name: create-demo-topics
     user: 1000:1001
