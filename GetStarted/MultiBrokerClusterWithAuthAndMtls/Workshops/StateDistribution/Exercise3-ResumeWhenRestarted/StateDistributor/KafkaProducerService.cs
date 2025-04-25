@@ -1,4 +1,5 @@
 using Confluent.Kafka;
+using Confluent.Kafka.SyncOverAsync;
 using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
 
@@ -19,7 +20,7 @@ public class KafkaProducerService
         var schemaRegistryClient = new CachedSchemaRegistryClient(schemaRegistryConfig);
         var protobufSerializerConfig = new ProtobufSerializerConfig { BufferBytes = 100 };
         _producer = new ProducerBuilder<byte[], Person?>(producerConfig)
-            .SetValueSerializer(new ProtobufSerializer<Person?>(schemaRegistryClient, protobufSerializerConfig))
+            .SetValueSerializer(new ProtobufSerializer<Person?>(schemaRegistryClient, protobufSerializerConfig).AsSyncOverAsync())
             .Build();
 
         var topicName = Environment.GetEnvironmentVariable(STATE_DISTRIBUTOR_KAFKA_STATE_TOPIC);
@@ -53,8 +54,10 @@ public class KafkaProducerService
         }
         try
         {
-            var produceResult = await _producer.ProduceAsync(_topic, message);
-            _logger.LogTrace($"Produce result status is {produceResult.Status}");
+            _producer.Produce(_topic, message, report =>
+            {
+                _logger.LogTrace($"Produce result status is {report.Status}");
+            });
         }
         catch(Exception ex)
         {
