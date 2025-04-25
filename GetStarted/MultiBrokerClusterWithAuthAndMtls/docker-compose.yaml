@@ -995,6 +995,9 @@ services:
         }
       SCHEMA_DEFINITION_PERSONS_PROTOBUF: |
         syntax = "proto3";
+        package no.nhn.kafka.examples.persons;
+        option java_package = "namespace.persons";
+        option csharp_namespace = "Namespace.persons";
 
         message PersonName{
             string Given = 1;
