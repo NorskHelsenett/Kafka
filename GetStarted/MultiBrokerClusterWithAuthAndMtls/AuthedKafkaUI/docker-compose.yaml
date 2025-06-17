@@ -338,7 +338,7 @@ services:
 
   kafka-ui-authed:
     # image: ghcr.io/kafbat/kafka-ui
-    image: ghcr.io/kafbat/kafka-ui:7073c72
+    image: "ghcr.io/kafbat/kafka-ui:7073c72" # Latest is the 3 month old release, 8 days old main branch is currently much better regarding auth!
     # https://github.com/kafbat/kafka-ui/pkgs/container/kafka-ui
     # hostname: kafka-ui-authed
     container_name: kafka-ui-authed
