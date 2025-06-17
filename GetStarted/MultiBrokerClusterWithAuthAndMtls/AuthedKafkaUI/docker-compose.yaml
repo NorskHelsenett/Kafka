@@ -12,7 +12,7 @@ services:
       - apps_network
     ports:
       - 8088:8088
-      - 9000:9000 # For health checks, should resolve at http://localhost:9000/health and http://localhost:9000/health/ready
+      # - 9000:9000 # For health checks, should resolve at http://localhost:9000/health and http://localhost:9000/health/ready
     stop_grace_period: 0s # SIGKILL after 0s during shutdown (no need for grace for this one)
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: "admin"
