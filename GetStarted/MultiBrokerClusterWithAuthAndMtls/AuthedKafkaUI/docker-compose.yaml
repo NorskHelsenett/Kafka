@@ -1,0 +1,516 @@
+networks:
+  apps_network:
+    name: apps_network
+    external: true
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak
+    container_name: keycloak
+    user: 1000:1001
+    networks:
+      - apps_network
+    ports:
+      - 8088:8088
+    stop_grace_period: 0s # SIGKILL after 0s during shutdown (no need for grace for this one)
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: "admin"
+      KC_BOOTSTRAP_ADMIN_PASSWORD: "password"
+      KEYCLOAK_ADMIN: "admin"
+      KEYCLOAK_ADMIN_PASSWORD: "password"
+      KC_HEALTH_ENABLED: "true"
+      KC_LOG_LEVEL: "INFO"
+      KC_HTTP_PORT: "8088"
+      KC_HTTP_HOST: 0.0.0.0
+      KC_HOSTNAME: "http://localhost:8088"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+    entrypoint:
+      - '/bin/bash'
+      - '-c'
+      - |
+        STARTED_AT_TIME=$$(date +%s)
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') Staring Keycloak server in dev mode in background"
+        /opt/keycloak/bin/kc.sh start-dev &
+        echo "Waiting a bit for startup"
+        sleep 6
+
+        echo "Setting up shared variables"
+        CUSTOM_REALM_NAME=lokalmaskin_realm
+        CUSTOM_CLIENT_NAME=kui_kc_client_app
+        CUSTOM_CLIENT_ID=kui_kc_client_app_id
+        DEMO_PASSWORD=password
+
+        echo "Defining functions to make setup a bit easier to follow"
+        function CreateUser {
+          while [ $$# -gt 0 ]; do
+            case "$$1" in
+              --username*|-u*)
+                if [[ "$$1" != *=* ]]; then shift; fi # Value is next arg if no `=`
+                SUPPLIED_USER_NAME="$${1#*=}"
+                ;;
+              *)
+                >&2 printf "Error: Invalid argument\n"
+                exit 1
+                ;;
+            esac
+            shift
+          done
+          echo "==> Creating demo user $${SUPPLIED_USER_NAME} in demo realm $${CUSTOM_REALM_NAME}"
+          /opt/keycloak/bin/kcadm.sh create users \
+            --target-realm $$CUSTOM_REALM_NAME \
+            --set username=$$SUPPLIED_USER_NAME \
+            --set enabled=true \
+            --set emailVerified=true \
+            --set "email=$${SUPPLIED_USER_NAME}@example.com" \
+            --set "firstName=$${SUPPLIED_USER_NAME} Given" \
+            --set "lastName=$${SUPPLIED_USER_NAME} Family" \
+            --output
+          echo "==> Setting password for demo user $${SUPPLIED_USER_NAME} in demo realm $${CUSTOM_REALM_NAME}"
+          /opt/keycloak/bin/kcadm.sh set-password \
+            --target-realm $$CUSTOM_REALM_NAME \
+            --username $$SUPPLIED_USER_NAME \
+            --new-password $$DEMO_PASSWORD
+        }
+
+        function AddUserToGroup {
+          while [ $$# -gt 0 ]; do
+            case "$$1" in
+              --username*|-u*)
+                if [[ "$$1" != *=* ]]; then shift; fi # Value is next arg if no `=`
+                SUPPLIED_USER_NAME="$${1#*=}"
+                ;;
+              --groupname*|-u*)
+                if [[ "$$1" != *=* ]]; then shift; fi # Value is next arg if no `=`
+                SUPPLIED_GROUP_NAME="$${1#*=}"
+                ;;
+              *)
+                >&2 printf "Error: Invalid argument\n"
+                exit 1
+                ;;
+            esac
+            shift
+          done
+          echo "==> Fetching ID of demo user \"$${SUPPLIED_USER_NAME}\" in demo realm \"$${CUSTOM_REALM_NAME}\""
+          ID_USER_TO_ADD=$(/opt/keycloak/bin/kcadm.sh get users \
+            --target-realm $$CUSTOM_REALM_NAME \
+            --query "exact=true" \
+            --query "username=$$SUPPLIED_USER_NAME" \
+            --fields "id" \
+            --format "csv" \
+            --noquotes)
+
+          echo "==> Fetching ID of demo group \"$${SUPPLIED_GROUP_NAME}\" in demo realm \"$${CUSTOM_REALM_NAME}\""
+          # Beware querying `search` not `name`
+          ID_GROUP_ADDING_TO=$(/opt/keycloak/bin/kcadm.sh get groups \
+            --target-realm $$CUSTOM_REALM_NAME \
+            --query "exact=true" \
+            --query "search=$$SUPPLIED_GROUP_NAME" \
+            --fields "id" \
+            --format "csv" \
+            --noquotes)
+
+          echo "Adding user \"$${SUPPLIED_USER_NAME}\" (ID: \"$${ID_USER_TO_ADD}\") to group \"$${SUPPLIED_GROUP_NAME}\" (ID: \"$${ID_GROUP_ADDING_TO}\") in realm \"$${CUSTOM_REALM_NAME}\""
+          /opt/keycloak/bin/kcadm.sh update \
+            "users/$${ID_USER_TO_ADD}/groups/$${ID_GROUP_ADDING_TO}" \
+            --target-realm $$CUSTOM_REALM_NAME \
+            --set "userId=$${ID_USER_TO_ADD}" \
+            --set "groupId=$${ID_GROUP_ADDING_TO}" \
+            --no-merge
+          # --output # Not available for this command, will just print error 404 after successfully executing
+        }
+
+        echo "Block until http endpoints ready"
+        while :
+        do
+          exec 3<>/dev/tcp/127.0.0.1/9000
+          echo -e 'GET /health/ready HTTP/1.1\nhost: http://localhost/auth\nConnection: close\n\n' >&3
+          if [ $? -eq 0 ]
+          then
+            echo '==> KC Ready'
+            break
+          fi
+          echo "==> KC not ready, sleeping a bit and checking again"
+          sleep 2
+        done
+
+        echo "Configuring realms and users"
+        echo "==> Configuring admin connection"
+        /opt/keycloak/bin/kcadm.sh config credentials \
+          --server http://localhost:8088 \
+          --realm master \
+          --user $$KC_BOOTSTRAP_ADMIN_USERNAME \
+          --password $$KC_BOOTSTRAP_ADMIN_PASSWORD
+
+        echo "==> Disabling SSL Required on master realm, because source of noice for local dev use"
+        /opt/keycloak/bin/kcadm.sh update realms/master \
+          --set sslRequired=NONE
+
+        echo "==> Creating demo realm $$CUSTOM_REALM_NAME"
+        /opt/keycloak/bin/kcadm.sh create realms \
+          --set realm=$$CUSTOM_REALM_NAME \
+          --set enabled=true \
+          --set sslRequired=NONE \
+          --output
+
+        echo "==> Creating demo role kui-realm-example-role in demo realm $$CUSTOM_REALM_NAME"
+        /opt/keycloak/bin/kcadm.sh create roles \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set name=kui-realm-example-role \
+          --output
+
+        echo "==> Creating demo oauth client registration $$CUSTOM_CLIENT_NAME in demo realm $$CUSTOM_REALM_NAME"
+        /opt/keycloak/bin/kcadm.sh create clients \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set id="$$CUSTOM_CLIENT_ID" \
+          --set clientId=$$CUSTOM_CLIENT_NAME \
+          --set publicClient="true" \
+          --set "redirectUris=[\"*\"]" \
+          --set "webOrigins=[\"*\"]" \
+          --set directAccessGrantsEnabled=true \
+          --set enabled=true \
+          --output
+
+        echo "===> Creating client scope openid needed by legacy client"
+        /opt/keycloak/bin/kcadm.sh create client-scopes \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set id="openid_scope_id" \
+          --set name="openid" \
+          --set protocol=openid-connect \
+          --set 'attributes."include.in.token.scope"=true' \
+          --output
+
+        echo "==> Adding scope openid to client $$CUSTOM_CLIENT_NAME"
+        /opt/keycloak/bin/kcadm.sh update \
+          clients/$$CUSTOM_CLIENT_ID/default-client-scopes/openid_scope_id \
+          --target-realm $$CUSTOM_REALM_NAME
+
+        echo "==> Creating demo roles in demo client $$CUSTOM_CLIENT_NAME in demo realm $$CUSTOM_REALM_NAME"
+        /opt/keycloak/bin/kcadm.sh create \
+          clients/$$CUSTOM_CLIENT_ID/roles \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set name=kui-role-admins \
+          --set "description=Custom client role" \
+          --output
+        /opt/keycloak/bin/kcadm.sh create \
+          clients/$$CUSTOM_CLIENT_ID/roles \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set name=kui-role-users \
+          --set "description=Custom client role" \
+          --output
+        /opt/keycloak/bin/kcadm.sh create \
+          clients/$$CUSTOM_CLIENT_ID/roles \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set name=kui-role-ro-users \
+          --set "description=Custom client role" \
+          --output
+
+        echo "==> Creating demo groups in demo realm"
+        /opt/keycloak/bin/kcadm.sh create groups \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set name=kui-group-admins \
+          --output
+        /opt/keycloak/bin/kcadm.sh create groups \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set name=kui-group-users \
+          --output
+        /opt/keycloak/bin/kcadm.sh create groups \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set name=kui-group-ro-users \
+          --output
+
+        echo "==> Creating group mapper for demo client so that groups gets included in tokens"
+        /opt/keycloak/bin/kcadm.sh create \
+          clients/$$CUSTOM_CLIENT_ID/protocol-mappers/models \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set "name=groups" \
+          --set "protocol=openid-connect" \
+          --set "protocolMapper=oidc-group-membership-mapper" \
+          --set "config.\"full.path\"=false" \
+          --set "config.\"introspection.token.claim\"=true" \
+          --set "config.\"multivalued\"=true" \
+          --set "config.\"id.token.claim\"=true" \
+          --set "config.\"access.token.claim\"=true" \
+          --set "config.\"userinfo.token.claim\"=true" \
+          --set "config.\"claim.name\"=groups" \
+          --set "config.\"jsonType.label\"=string" \
+          --output
+        echo "==> Creating role mapper for demo client so that realm roles gets included in tokens"
+        /opt/keycloak/bin/kcadm.sh create \
+          clients/$$CUSTOM_CLIENT_ID/protocol-mappers/models \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set "name=roles-realm" \
+          --set "protocol=openid-connect" \
+          --set "protocolMapper=oidc-usermodel-realm-role-mapper" \
+          --set "config.\"introspection.token.claim\"=true" \
+          --set "config.\"multivalued\"=true" \
+          --set "config.\"id.token.claim\"=true" \
+          --set "config.\"access.token.claim\"=true" \
+          --set "config.\"claim.name\"=roles" \
+          --set "config.\"jsonType.label\"=string" \
+          --output
+        echo "==> Creating role mapper for demo client so that client roles gets included in tokens"
+        /opt/keycloak/bin/kcadm.sh create \
+          clients/$$CUSTOM_CLIENT_ID/protocol-mappers/models \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --set "name=roles-client" \
+          --set "protocol=openid-connect" \
+          --set "protocolMapper=oidc-usermodel-client-role-mapper" \
+          --set "config.\"introspection.token.claim\"=true" \
+          --set "config.\"multivalued\"=true" \
+          --set "config.\"id.token.claim\"=true" \
+          --set "config.\"access.token.claim\"=true" \
+          --set "config.\"claim.name\"=roles" \
+          --set "config.\"jsonType.label\"=string" \
+          --output
+
+        echo "==> Creating demo users in demo realm"
+        CreateUser --username "kui-admin"
+        CreateUser --username "kui-user"
+        CreateUser --username "kui-user-ro"
+
+        echo "==> Assigning realm roles to demo users"
+        /opt/keycloak/bin/kcadm.sh add-roles \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --uusername "kui-admin" \
+          --rolename "kui-realm-example-role"
+        /opt/keycloak/bin/kcadm.sh add-roles \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --uusername "kui-user" \
+          --rolename "kui-realm-example-role"
+        /opt/keycloak/bin/kcadm.sh add-roles \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --uusername "kui-user-ro" \
+          --rolename "kui-realm-example-role"
+
+        echo "==> Assigning client roles to demo users"
+        /opt/keycloak/bin/kcadm.sh add-roles \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --uusername "kui-admin" \
+          --cclientid $$CUSTOM_CLIENT_NAME \
+          --rolename "kui-role-admins"
+        /opt/keycloak/bin/kcadm.sh add-roles \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --uusername "kui-user" \
+          --cclientid $$CUSTOM_CLIENT_NAME \
+          --rolename "kui-role-users"
+        /opt/keycloak/bin/kcadm.sh add-roles \
+          --target-realm $$CUSTOM_REALM_NAME \
+          --uusername "kui-user-ro" \
+          --cclientid $$CUSTOM_CLIENT_NAME \
+          --rolename "kui-role-ro-users"
+
+        echo "==> Assigning groups to demo users"
+        AddUserToGroup --username "kui-admin" --groupname "kui-group-admins"
+        AddUserToGroup --username "kui-user" --groupname "kui-group-users"
+        AddUserToGroup --username "kui-user-ro" --groupname "kui-group-ro-users"
+
+        touch /tmp/demo-startup-config-done
+        echo "$$(date -u +'%Y-%m-%dT%H:%M:%SZ') Demo setup done"
+
+        FINISHED_AT_TIME=$$(date +%s)
+        TIME_TAKEN=$$(($$FINISHED_AT_TIME-$$STARTED_AT_TIME))
+        echo -e "Startup took $$TIME_TAKEN seconds\n"
+
+        echo -e "To get user access token run:\ncurl --request POST --url http://localhost:8088/realms/$$CUSTOM_REALM_NAME/protocol/openid-connect/token --header 'Content-Type: application/x-www-form-urlencoded' --data client_id=$$CUSTOM_CLIENT_NAME --data username=kui-admin --data password=password --data realm=$$CUSTOM_REALM_NAME --data grant_type=password | jq -r \".access_token\" | jq -R 'split(\".\") | .[0],.[1] | @base64d | fromjson'"
+
+        echo -e "\nKeeping container alive indefinitely until it's shut down from the outside"
+        sleep infinity
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - >-
+          if [ ! -f /tmp/demo-startup-config-done ];
+          then ehco 'Healthcheck file indication startup config done not created yet';
+          exit 1;
+          fi;
+          exec 3<>/dev/tcp/127.0.0.1/9000;
+          echo -e 'GET /health/ready HTTP/1.1\nhost: http://localhost/auth\nConnection: close\n\n' >&3;
+          if [ $? -eq 0 ];
+          then echo 'Healthcheck Web Endpoint Successful';
+          exit 0;
+          else echo 'Healthcheck Failed';
+          exit 1;
+          fi;
+      start_period: "15s"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  kafka-ui-authed:
+    # image: ghcr.io/kafbat/kafka-ui
+    image: ghcr.io/kafbat/kafka-ui:7073c72
+    # https://github.com/kafbat/kafka-ui/pkgs/container/kafka-ui
+    # hostname: kafka-ui-authed
+    container_name: kafka-ui-authed
+    user: 1000:1001
+    depends_on:
+      # broker1:
+      #   required: true
+      #   restart: false
+      #   condition: service_healthy
+      # broker2:
+      #   required: true
+      #   restart: false
+      #   condition: service_healthy
+      # broker3:
+      #   required: true
+      #   restart: false
+      #   condition: service_healthy
+      # schema-registry: # Not strictly needed
+      #   required: true
+      #   restart: false
+      #   condition: service_healthy
+      keycloak:
+        required: true
+        restart: false
+        condition: service_healthy
+    # Must use networkmode host for KC to resolve at http://localhost:8088 for both the app and the user
+    network_mode: "host"
+    volumes:
+      - ../ContainerData/GeneratedCerts/Kafka/Users/kafka-ui:/kafka/secrets
+    environment:
+      SERVER_PORT: "8082"
+      KAFKA_CLUSTERS_0_NAME: "lokalmaskin"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "localhost:9094,localhost:9095,localhost:9096"
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://localhost:8083/apis/ccompat/v7"
+
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: "SSL"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_TYPE: "PEM"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/ca.crt"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_TYPE: "PKCS12"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_LOCATION: "/kafka/secrets/acl-principal.pfx"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_PASSWORD: "demo_cert_password"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEY_PASSWORD: "demo_cert_password"
+
+      KAFKA_CLUSTERS_0_AUDIT_TOPICAUDITENABLED: "true"
+      KAFKA_CLUSTERS_0_AUDIT_CONSOLEAUDITENABLED: "true"
+      KAFKA_CLUSTERS_0_AUDIT_TOPIC: "__kui-audit-log"
+      KAFKA_CLUSTERS_0_AUDIT_AUDITTOPICPROPERTIES_RETENTION_MS: "-1" # Time-wise, retain logs forever
+      KAFKA_CLUSTERS_0_AUDIT_AUDITTOPICPROPERTIES_RETENTION_BYTES: "1048576" # Only keep 1MiB of logs locally
+      KAFKA_CLUSTERS_0_AUDIT_AUDITTOPICSPARTITIONS: "1"
+      KAFKA_CLUSTERS_0_AUDIT_LEVEL: "all"
+
+      # LOGGING_LEVEL_ROOT: "trace" # trace, debug, info, warn, error
+      # LOGGING_LEVEL_IO_KAFBAT_UI: "trace" # trace, debug, info, warn, error
+
+      # https://ui.docs.kafbat.io/configuration/authentication/for-the-ui/oauth2
+      AUTH_TYPE: "OAUTH2"
+      AUTH_OAUTH2_CLIENT_KEYCLOAK_CLIENTID: "kui_kc_client_app"
+      # AUTH_OAUTH2_CLIENT_KEYCLOAK_CLIENTSECRET: "yyy"
+      AUTH_OAUTH2_CLIENT_KEYCLOAK_SCOPE: "openid"
+      AUTH_OAUTH2_CLIENT_KEYCLOAK_ISSUERURI: "http://localhost:8088/realms/lokalmaskin_realm"
+      AUTH_OAUTH2_CLIENT_KEYCLOAK_USERNAMEATTRIBUTE: "preferred_username"
+      # AUTH_OAUTH2_CLIENT_KEYCLOAK_USERNAMEATTRIBUTE: "email"
+      AUTH_OAUTH2_CLIENT_KEYCLOAK_CLIENTNAME: "kui_kc_client_app" # Display name for client?
+      AUTH_OAUTH2_CLIENT_KEYCLOAK_PROVIDER: "keycloak"
+      AUTH_OAUTH2_CLIENT_KEYCLOAK_CUSTOMPARAMS_TYPE: "oauth"
+      # AUTH_OAUTH2_CLIENT_KEYCLOAK_CUSTOMPARAMS_TYPE: "oidc"
+      AUTH_OAUTH2_CLIENT_KEYCLOAK_CUSTOMPARAMS_ROLES-FIELD: "groups"
+      # AUTH_OAUTH2_CLIENT_KEYCLOAK_CUSTOMPARAMS_ROLES-FIELD: "roles"
+
+      # https://ui.docs.kafbat.io/configuration/rbac-role-based-access-control
+      # Tool for converting java yaml to env: https://env.simplestep.ca
+      RBAC_ROLES_0_NAME: "admins"
+      RBAC_ROLES_0_CLUSTERS_0_: "lokalmaskin"
+      RBAC_ROLES_0_SUBJECTS_0_PROVIDER: "oauth"
+      RBAC_ROLES_0_SUBJECTS_0_TYPE: "role"
+      RBAC_ROLES_0_SUBJECTS_0_VALUE: "kui-group-admins"
+      # RBAC_ROLES_0_SUBJECTS_0_PROVIDER: "oauth"
+      # RBAC_ROLES_0_SUBJECTS_0_TYPE: "role"
+      # RBAC_ROLES_0_SUBJECTS_0_VALUE: "kui-role-admins"
+      # RBAC_ROLES_0_SUBJECTS_1_PROVIDER: "oauth"
+      # RBAC_ROLES_0_SUBJECTS_1_TYPE: "user"
+      # RBAC_ROLES_0_SUBJECTS_1_VALUE: "kui-admin"
+      RBAC_ROLES_0_PERMISSIONS_0_RESOURCE: "applicationconfig"
+      RBAC_ROLES_0_PERMISSIONS_0_ACTIONS: "all"
+      RBAC_ROLES_0_PERMISSIONS_1_RESOURCE: "clusterconfig"
+      RBAC_ROLES_0_PERMISSIONS_1_ACTIONS: "all"
+      RBAC_ROLES_0_PERMISSIONS_2_RESOURCE: "topic"
+      RBAC_ROLES_0_PERMISSIONS_2_VALUE: ".*"
+      RBAC_ROLES_0_PERMISSIONS_2_ACTIONS: "all"
+      RBAC_ROLES_0_PERMISSIONS_3_RESOURCE: "consumer"
+      RBAC_ROLES_0_PERMISSIONS_3_VALUE: ".*"
+      RBAC_ROLES_0_PERMISSIONS_3_ACTIONS: "all"
+      RBAC_ROLES_0_PERMISSIONS_4_RESOURCE: "schema"
+      RBAC_ROLES_0_PERMISSIONS_4_VALUE: ".*"
+      RBAC_ROLES_0_PERMISSIONS_4_ACTIONS: "all"
+      RBAC_ROLES_0_PERMISSIONS_5_RESOURCE: "connect"
+      RBAC_ROLES_0_PERMISSIONS_5_VALUE: ".*"
+      RBAC_ROLES_0_PERMISSIONS_5_ACTIONS: "all"
+      RBAC_ROLES_0_PERMISSIONS_6_RESOURCE: "ksql"
+      RBAC_ROLES_0_PERMISSIONS_6_ACTIONS: "all"
+      RBAC_ROLES_0_PERMISSIONS_7_RESOURCE: "acl"
+      RBAC_ROLES_0_PERMISSIONS_7_ACTIONS_0_: "all"
+
+      RBAC_ROLES_1_NAME: "readonly"
+      RBAC_ROLES_1_CLUSTERS_0_: "lokalmaskin"
+      RBAC_ROLES_1_SUBJECTS_0_PROVIDER: "oauth"
+      RBAC_ROLES_1_SUBJECTS_0_TYPE: "role"
+      RBAC_ROLES_1_SUBJECTS_0_VALUE: "kui-group-ro-users"
+      # RBAC_ROLES_1_SUBJECTS_0_PROVIDER: "oauth"
+      # RBAC_ROLES_1_SUBJECTS_0_TYPE: "role"
+      # RBAC_ROLES_1_SUBJECTS_0_VALUE: "kui-role-ro-users"
+      # RBAC_ROLES_1_SUBJECTS_1_PROVIDER: "oauth"
+      # RBAC_ROLES_1_SUBJECTS_1_TYPE: "user"
+      # RBAC_ROLES_1_SUBJECTS_1_VALUE: "kui-user-ro"
+      RBAC_ROLES_1_PERMISSIONS_0_RESOURCE: "clusterconfig"
+      RBAC_ROLES_1_PERMISSIONS_0_ACTIONS_0_: "view"
+      RBAC_ROLES_1_PERMISSIONS_1_RESOURCE: "topic"
+      RBAC_ROLES_1_PERMISSIONS_1_VALUE: ".*"
+      RBAC_ROLES_1_PERMISSIONS_1_ACTIONS_0_: "VIEW"
+      RBAC_ROLES_1_PERMISSIONS_1_ACTIONS_1_: "MESSAGES_READ"
+      RBAC_ROLES_1_PERMISSIONS_1_ACTIONS_2_: "ANALYSIS_VIEW"
+      RBAC_ROLES_1_PERMISSIONS_2_RESOURCE: "consumer"
+      RBAC_ROLES_1_PERMISSIONS_2_VALUE: ".*"
+      RBAC_ROLES_1_PERMISSIONS_2_ACTIONS_0_: "view"
+      RBAC_ROLES_1_PERMISSIONS_3_RESOURCE: "schema"
+      RBAC_ROLES_1_PERMISSIONS_3_VALUE: ".*"
+      RBAC_ROLES_1_PERMISSIONS_3_ACTIONS_0_: "view"
+      RBAC_ROLES_1_PERMISSIONS_4_RESOURCE: "connect"
+      RBAC_ROLES_1_PERMISSIONS_4_VALUE: ".*"
+      RBAC_ROLES_1_PERMISSIONS_4_ACTIONS_0_: "view"
+      RBAC_ROLES_1_PERMISSIONS_5_RESOURCE: "acl"
+      RBAC_ROLES_1_PERMISSIONS_5_ACTIONS_0_: "view"
+
+      RBAC_ROLES_2_NAME: "user"
+      RBAC_ROLES_2_CLUSTERS_0_: "lokalmaskin"
+      RBAC_ROLES_2_SUBJECTS_0_PROVIDER: "oauth"
+      RBAC_ROLES_2_SUBJECTS_0_TYPE: "role"
+      RBAC_ROLES_2_SUBJECTS_0_VALUE: "kui-group-users"
+      # RBAC_ROLES_2_SUBJECTS_0_PROVIDER: "oauth"
+      # RBAC_ROLES_2_SUBJECTS_0_TYPE: "role"
+      # RBAC_ROLES_2_SUBJECTS_0_VALUE: "kui-role-users"
+      # RBAC_ROLES_2_SUBJECTS_1_PROVIDER: "oauth"
+      # RBAC_ROLES_2_SUBJECTS_1_TYPE: "user"
+      # RBAC_ROLES_2_SUBJECTS_1_VALUE: "kui-user"
+      RBAC_ROLES_2_PERMISSIONS_0_RESOURCE: "clusterconfig"
+      RBAC_ROLES_2_PERMISSIONS_0_ACTIONS_0_: "view"
+      RBAC_ROLES_2_PERMISSIONS_1_RESOURCE: "topic"
+      RBAC_ROLES_2_PERMISSIONS_1_VALUE: "Users"
+      RBAC_ROLES_2_PERMISSIONS_1_ACTIONS_0_: "VIEW"
+      RBAC_ROLES_2_PERMISSIONS_1_ACTIONS_1_: "CREATE"
+      RBAC_ROLES_2_PERMISSIONS_1_ACTIONS_2_: "EDIT"
+      RBAC_ROLES_2_PERMISSIONS_1_ACTIONS_3_: "DELETE"
+      RBAC_ROLES_2_PERMISSIONS_1_ACTIONS_4_: "MESSAGES_READ"
+      RBAC_ROLES_2_PERMISSIONS_1_ACTIONS_5_: "MESSAGES_PRODUCE"
+      RBAC_ROLES_2_PERMISSIONS_1_ACTIONS_6_: "MESSAGES_DELETE"
+      RBAC_ROLES_2_PERMISSIONS_1_ACTIONS_7_: "ANALYSIS_RUN"
+      RBAC_ROLES_2_PERMISSIONS_1_ACTIONS_8_: "ANALYSIS_VIEW"
+      RBAC_ROLES_2_PERMISSIONS_2_RESOURCE: "consumer"
+      RBAC_ROLES_2_PERMISSIONS_2_VALUE: ".*"
+      RBAC_ROLES_2_PERMISSIONS_2_ACTIONS_0_: "view"
+      RBAC_ROLES_2_PERMISSIONS_3_RESOURCE: "connect"
+      RBAC_ROLES_2_PERMISSIONS_3_VALUE: ".*"
+      RBAC_ROLES_2_PERMISSIONS_3_ACTIONS_0_: "view"
+      RBAC_ROLES_2_PERMISSIONS_4_RESOURCE: "acl"
+      RBAC_ROLES_2_PERMISSIONS_4_ACTIONS_0_: "view"
+      RBAC_ROLES_2_PERMISSIONS_5_RESOURCE: "schema"
+      RBAC_ROLES_2_PERMISSIONS_5_VALUE: ".*"
+      RBAC_ROLES_2_PERMISSIONS_5_ACTIONS_0_: "view"
+      RBAC_ROLES_2_PERMISSIONS_6_RESOURCE: "schema"
+      RBAC_ROLES_2_PERMISSIONS_6_VALUE: "Users-value"
+      RBAC_ROLES_2_PERMISSIONS_6_ACTIONS_0_: "VIEW"
+      RBAC_ROLES_2_PERMISSIONS_6_ACTIONS_1_: "CREATE"
+      RBAC_ROLES_2_PERMISSIONS_6_ACTIONS_2_: "DELETE"
+      RBAC_ROLES_2_PERMISSIONS_6_ACTIONS_3_: "EDIT"
+      RBAC_ROLES_2_PERMISSIONS_6_ACTIONS_4_: "MODIFY_GLOBAL_COMPATIBILITY"
