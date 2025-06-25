@@ -583,6 +583,7 @@ services:
       - ./ContainerData:/ContainerData
     environment:
       RECREATE_IF_EXISTS: "false"
+      USE_DEMO_PASSWORDS: "false"
     entrypoint:
       - '/bin/bash'
       - '-c'
@@ -596,7 +597,6 @@ services:
         # Default to 1024, because 4096 is noticeably slow to humans, and default mode here is demo
         RSA_BITS='1024'
         CERT_PASSWORD_LENGTH='32'
-        USE_DEMO_PASSWORDS='true'
 
         CA_PASSWORD_PATH='/ContainerData/GeneratedCerts/CertificateAuthority/password.txt'
         CA_KEY_PATH='/ContainerData/GeneratedCerts/CertificateAuthority/ca.key'
@@ -606,18 +606,44 @@ services:
         echo '================ Done Setting Up Variables ========================'
 
         function CreateCertsForUser {
-          local USER_CN=$$1
-          local USER_OUTPUT_DIR="/ContainerData/GeneratedCerts/Kafka/Users/$$1"
+          while [ $$# -gt 0 ]; do
+            case "$$1" in
+              --username*|-u*)
+                if [[ "$$1" != *=* ]]; then shift; fi # Value is next arg if no `=`
+                local USER_NAME="$$1"
+                ;;
+              --password*|-p*)
+                if [[ "$$1" != *=* ]]; then shift; fi
+                local USER_PASSWORD="$$1"
+                ;;
+              *)
+                >&2 printf "Error: Unknown parameter passed: $$1\n"
+                exit 1
+                ;;
+            esac
+            shift
+          done
+          local USER_CN=$$USER_NAME
+          local USER_OUTPUT_DIR="/ContainerData/GeneratedCerts/Kafka/Users/$$USER_NAME"
           echo "Cleaning and setting up folder structure for $$USER_CN certificate"
           rm -rf $$USER_OUTPUT_DIR
           mkdir -p $$USER_OUTPUT_DIR
           pushd $$USER_OUTPUT_DIR
 
           echo "Setting up password for $$USER_CN certificate"
-          local USER_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
-          if [ ''$$USE_DEMO_PASSWORDS == 'true' ]; then
-            echo "WARNING: Setting up local demo password for $$USER_CN certificate"
-            USER_PASSWORD='demo_cert_password'
+          if [ -z $${USER_PASSWORD+x} ]
+          then
+            echo "Password not supplied"
+            if [ ''$$USE_DEMO_PASSWORDS == 'true' ]
+            then
+              echo "WARNING: USE_DEMO_PASSWORDS set to true, setting up local demo password for $$USER_NAME certificate"
+              USER_PASSWORD='demo_cert_password'
+            else
+              echo "Generating random password for certificate for user"
+              local USER_PASSWORD=$(tr -dc 'A-Za-z0-9!$%&()*+,-./<>?@[\]^_{|}~' </dev/urandom | head -c $$CERT_PASSWORD_LENGTH; echo)
+            fi
+          else
+            echo "Password for certificate for user supplied, using that"
           fi
           echo $$USER_PASSWORD > $$USER_OUTPUT_DIR/password.txt
 
@@ -693,13 +719,13 @@ services:
           popd
         }
 
-        CreateCertsForUser "admin"
-        CreateCertsForUser "kafka-ui"
-        CreateCertsForUser "demo-producer"
-        CreateCertsForUser "demo-consumer"
-        CreateCertsForUser "avro-user"
-        CreateCertsForUser "protobuf-user"
-        CreateCertsForUser "json-user"
+        CreateCertsForUser --username "admin"
+        CreateCertsForUser --username "kafka-ui" --password "kafka_ui_demo_cert_password"
+        CreateCertsForUser --username "demo-producer"
+        CreateCertsForUser --username "demo-consumer"
+        CreateCertsForUser --username "avro-user"
+        CreateCertsForUser --username "protobuf-user"
+        CreateCertsForUser --username "json-user"
 
   create-acls:
     image: apache/kafka:4.0.0
@@ -1469,8 +1495,8 @@ services:
       KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION: "/kafka/secrets/ca.crt"
       KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_TYPE: "PKCS12"
       KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_LOCATION: "/kafka/secrets/acl-principal.pfx"
-      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_PASSWORD: "demo_cert_password"
-      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEY_PASSWORD: "demo_cert_password"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_PASSWORD: "kafka_ui_demo_cert_password"
+      KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEY_PASSWORD: "kafka_ui_demo_cert_password"
 
       KAFKA_CLUSTERS_0_AUDIT_TOPICAUDITENABLED: "true"
       KAFKA_CLUSTERS_0_AUDIT_CONSOLEAUDITENABLED: "true"
